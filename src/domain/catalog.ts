@@ -111,3 +111,45 @@ export const PRODUCT_CATALOG: Readonly<Record<ProductSlug, MenuProduct>> = {
 export function getLevelUpcharges(family: DrinkFamily): Readonly<Record<1 | 2 | 3, MoneyCentavos>> {
   return family === 'matcha' ? MATCHA_LEVEL_UPCHARGES : HOJICHA_LEVEL_UPCHARGES
 }
+
+/**
+ * The closed defaults above remain the source of truth for the domain and its
+ * tests. The dashboard can layer validated owner settings over them at runtime
+ * without ever accepting prices from an order payload or an LLM response.
+ */
+export type RuntimeCatalogSettings = {
+  productBasePrices: Readonly<Record<ProductSlug, MoneyCentavos>>
+  productAvailability: Readonly<Record<ProductSlug, boolean>>
+  matchaLevelUpcharges: Readonly<Record<MatchaLevel, MoneyCentavos>>
+  hojichaLevelUpcharges: Readonly<Record<HojichaLevel, MoneyCentavos>>
+  powderUpcharges: Readonly<Record<Powder, MoneyCentavos>>
+  thermalBagPrices: Readonly<Record<1 | 2 | 3 | 4, MoneyCentavos>>
+}
+
+let runtimeSettings: RuntimeCatalogSettings | null = null
+
+export function setRuntimeCatalogSettings(settings: RuntimeCatalogSettings | null): void {
+  runtimeSettings = settings
+}
+
+export function getRuntimeCatalog(): Readonly<Record<ProductSlug, MenuProduct>> {
+  if (!runtimeSettings) return PRODUCT_CATALOG
+  return Object.fromEntries(
+    Object.entries(PRODUCT_CATALOG)
+      .filter(([slug]) => runtimeSettings!.productAvailability[slug as ProductSlug])
+      .map(([slug, product]) => [slug, { ...product, basePriceCentavos: runtimeSettings!.productBasePrices[slug as ProductSlug] }]),
+  ) as Readonly<Record<ProductSlug, MenuProduct>>
+}
+
+export function getRuntimeLevelUpcharges(family: DrinkFamily): Readonly<Record<1 | 2 | 3, MoneyCentavos>> {
+  if (!runtimeSettings) return getLevelUpcharges(family)
+  return family === 'matcha' ? runtimeSettings.matchaLevelUpcharges : runtimeSettings.hojichaLevelUpcharges
+}
+
+export function getRuntimePowderUpcharges(): Readonly<Record<Powder, MoneyCentavos>> {
+  return runtimeSettings?.powderUpcharges ?? POWDER_UPCHARGES
+}
+
+export function getRuntimeThermalBagPrices(): Readonly<Record<1 | 2 | 3 | 4, MoneyCentavos>> {
+  return runtimeSettings?.thermalBagPrices ?? THERMAL_BAG_PRICES
+}

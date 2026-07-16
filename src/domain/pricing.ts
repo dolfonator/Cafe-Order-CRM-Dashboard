@@ -1,8 +1,8 @@
 import {
-  getLevelUpcharges,
-  POWDER_UPCHARGES,
-  PRODUCT_CATALOG,
-  THERMAL_BAG_PRICES,
+  getRuntimeCatalog,
+  getRuntimeLevelUpcharges,
+  getRuntimePowderUpcharges,
+  getRuntimeThermalBagPrices,
 } from './catalog'
 import type {
   DrinkModifiers,
@@ -42,11 +42,12 @@ function multiplyCentavos(unitPrice: MoneyCentavos, quantity: number): MoneyCent
 }
 
 function getProduct(slug: unknown): MenuProduct {
-  if (typeof slug !== 'string' || !(slug in PRODUCT_CATALOG)) {
+  const catalog = getRuntimeCatalog()
+  if (typeof slug !== 'string' || !(slug in catalog)) {
     return fail('UNKNOWN_PRODUCT', `Unknown product: ${String(slug)}`)
   }
 
-  return PRODUCT_CATALOG[slug as ProductSlug]
+  return catalog[slug as ProductSlug]
 }
 
 function validateQuantity(quantity: unknown): asserts quantity is number {
@@ -61,13 +62,14 @@ function validateModifiers(product: MenuProduct, modifiers: unknown): asserts mo
   }
 
   const { level, powder, sweetness } = modifiers
-  const levelUpcharges = getLevelUpcharges(product.family)
+  const levelUpcharges = getRuntimeLevelUpcharges(product.family)
+  const powderUpcharges = getRuntimePowderUpcharges()
 
   if (typeof level !== 'number' || !(level in levelUpcharges)) {
     fail('UNKNOWN_MODIFIER_OPTION', `Unknown ${product.family} level: ${String(level)}`)
   }
 
-  if (typeof powder !== 'string' || !(powder in POWDER_UPCHARGES)) {
+  if (typeof powder !== 'string' || !(powder in powderUpcharges)) {
     fail('UNKNOWN_MODIFIER_OPTION', `Unknown powder: ${String(powder)}`)
   }
 
@@ -91,8 +93,8 @@ function priceItem(draft: OrderItemDraft): PricedOrderItem {
   validateQuantity(draft.quantity)
   validateModifiers(product, draft.modifiers)
 
-  const levelUpcharge = getLevelUpcharges(product.family)[draft.modifiers.level]
-  const powderUpcharge = POWDER_UPCHARGES[draft.modifiers.powder as Powder]
+  const levelUpcharge = getRuntimeLevelUpcharges(product.family)[draft.modifiers.level]
+  const powderUpcharge = getRuntimePowderUpcharges()[draft.modifiers.powder as Powder]
   const unitPriceCentavos = addCentavos(product.basePriceCentavos, levelUpcharge, powderUpcharge)
 
   return {
@@ -115,12 +117,13 @@ function priceItem(draft: OrderItemDraft): PricedOrderItem {
 }
 
 function priceThermalBag(draft: ThermalBagDraft): ThermalBag {
-  if (!isRecord(draft) || !Number.isSafeInteger(draft.coveredCupCount) || !(draft.coveredCupCount in THERMAL_BAG_PRICES)) {
+  const thermalBagPrices = getRuntimeThermalBagPrices()
+  if (!isRecord(draft) || !Number.isSafeInteger(draft.coveredCupCount) || !(draft.coveredCupCount in thermalBagPrices)) {
     return fail('INVALID_THERMAL_BAG', 'A thermal bag must explicitly cover 1, 2, 3, or 4 cups')
   }
 
   const coveredCupCount = draft.coveredCupCount as 1 | 2 | 3 | 4
-  return { coveredCupCount, priceCentavos: THERMAL_BAG_PRICES[coveredCupCount] }
+  return { coveredCupCount, priceCentavos: thermalBagPrices[coveredCupCount] }
 }
 
 /**

@@ -1,7 +1,8 @@
 import { Clipboard, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { PRODUCT_CATALOG } from '../../domain/catalog'
+import { getRuntimeCatalog } from '../../domain/catalog'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
+import { loadDashboardSettings } from '../settings/settings-store'
 import { applyCustomerMatch } from './customer-matching'
 import { formatPhp, normalizeFunctionResponse, parseLocalInput, validateDraft } from './parser'
 import { confirmImportDraft } from './persist'
@@ -37,7 +38,8 @@ function DraftCard({ draft, customers, orders, confirming, onChange, onConfirm }
   onChange: (draft: ImportDraft) => void
   onConfirm: () => void
 }) {
-  const validation = useMemo(() => validateDraft(draft), [draft])
+  const catalog = getRuntimeCatalog()
+  const validation = useMemo(() => validateDraft(draft), [draft, catalog])
   const mutate = (next: ImportDraft) => onChange(applyCustomerMatch(next, customers, orders))
   return (
     <article className="rounded-2xl border border-[#4F74C8]/20 bg-[#FFFDF6] p-4 shadow-sm">
@@ -58,7 +60,7 @@ function DraftCard({ draft, customers, orders, confirming, onChange, onConfirm }
         {draft.items.map((item, index) => <div key={item.id} className="rounded-xl border border-[#4F74C8]/15 bg-white p-3">
           <div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wide text-[#4A5365]">Drink {index + 1}{validation.itemTotalsCentavos.has(item.id) ? ` · ${formatPhp(validation.itemTotalsCentavos.get(item.id)!)}` : ''}</span><button type="button" aria-label={`Remove drink ${index + 1}`} className="text-[#4A5365]" onClick={() => onChange({ ...draft, items: draft.items.filter((entry) => entry.id !== item.id) })}><Trash2 size={16} /></button></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <FieldLabel>Drink<SelectInput aria-label={`Drink ${index + 1}`} value={item.productSlug ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { productSlug: event.target.value || null, level: 1, powder: 'yumeno', sweetness: undefined }))}><option value="">Unresolved</option>{item.productSlug && !(item.productSlug in PRODUCT_CATALOG) && <option value={item.productSlug}>Unresolved: {item.productSlug}</option>}{Object.entries(PRODUCT_CATALOG).map(([slug, product]) => <option key={slug} value={slug}>{product.name}</option>)}</SelectInput></FieldLabel>
+            <FieldLabel>Drink<SelectInput aria-label={`Drink ${index + 1}`} value={item.productSlug ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { productSlug: event.target.value || null, level: 1, powder: 'yumeno', sweetness: undefined }))}><option value="">Unresolved</option>{item.productSlug && !(item.productSlug in catalog) && <option value={item.productSlug}>Unresolved: {item.productSlug}</option>}{Object.entries(catalog).map(([slug, product]) => <option key={slug} value={slug}>{product.name}</option>)}</SelectInput></FieldLabel>
             <FieldLabel>Qty<TextInput aria-label={`Quantity ${index + 1}`} type="number" min="1" value={item.quantity ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { quantity: event.target.valueAsNumber || null }))} /></FieldLabel>
             <FieldLabel>Level<SelectInput aria-label={`Level ${index + 1}`} value={item.level ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { level: event.target.value ? Number(event.target.value) as 1 | 2 | 3 : null }))}><option value="">Unresolved</option><option value="1">L1</option><option value="2">L2</option><option value="3">L3</option></SelectInput></FieldLabel>
             <FieldLabel>Powder<SelectInput aria-label={`Powder ${index + 1}`} value={item.powder ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { powder: event.target.value === 'mk_isuzu' ? 'mk_isuzu' : event.target.value === 'yumeno' ? 'yumeno' : null }))}><option value="">Unresolved</option><option value="yumeno">Yumeno</option><option value="mk_isuzu">MK Isuzu</option></SelectInput></FieldLabel>
@@ -80,7 +82,15 @@ export function ImportWorkspace({ adapter }: ImportWorkspaceProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [, setCatalogVersion] = useState(0)
 
+  useEffect(() => {
+    let active = true
+    const refreshCatalog = () => { void loadDashboardSettings(adapter).then(() => { if (active) setCatalogVersion((version) => version + 1) }) }
+    refreshCatalog()
+    const unsubscribe = adapter.subscribe((change) => { if (change.collection === 'settings') refreshCatalog() })
+    return () => { active = false; unsubscribe() }
+  }, [adapter])
   useEffect(() => { void Promise.all([adapter.listCustomers(), adapter.listOrders()]).then(([nextCustomers, nextOrders]) => { setCustomers(nextCustomers); setOrders(nextOrders) }) }, [adapter])
   const setDraft = (next: ImportDraft) => setDrafts((current) => current.map((draft) => draft.id === next.id ? next : draft))
   const parse = async () => {
@@ -97,7 +107,7 @@ export function ImportWorkspace({ adapter }: ImportWorkspaceProps) {
       setMessage('Parsed through the extraction service. Review every field before confirming.')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The extraction service failed') } finally { setLoading(false) }
   }
-  const copyPrompt = async () => { await navigator.clipboard.writeText(buildViberChatGptPrompt()); setMessage('The @ChatGPT-in-Viber extraction prompt is copied.') }
+  const copyPrompt = async () => { await navigator.clipboard.writeText(buildViberChatGptPrompt(getRuntimeCatalog())); setMessage('The @ChatGPT-in-Viber extraction prompt is copied.') }
   const confirm = async (draft: ImportDraft) => {
     if (confirmingId) return
     setConfirmingId(draft.id); setMessage(null)

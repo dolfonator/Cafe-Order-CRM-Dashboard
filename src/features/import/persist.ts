@@ -1,4 +1,4 @@
-import { PRODUCT_CATALOG } from '../../domain/catalog'
+import { getRuntimeCatalog } from '../../domain/catalog'
 import { priceOrder } from '../../domain/pricing'
 import type { ProductSlug } from '../../domain/contracts'
 import type { StorageAdapter, StoredCustomer, StoredOrder, StoredOrderItem, StoredProduct } from '../../data/types'
@@ -27,7 +27,7 @@ export async function confirmImportDraft(adapter: StorageAdapter, draft: ImportD
   })
   const orderId = id()
   const items: StoredOrderItem[] = priced.items.map((item) => {
-    const product: StoredProduct | undefined = productByName.get(PRODUCT_CATALOG[item.productSlug].name)
+    const product: StoredProduct | undefined = productByName.get(getRuntimeCatalog()[item.productSlug].name)
     if (!product) throw new Error(`Storage is missing the catalog product ${item.productName}`)
     return {
       id: id(), orderId, productId: product.id, productName: item.productName, quantity: item.quantity,

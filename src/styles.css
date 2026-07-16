@@ -11,5 +11,14 @@
 
 * { box-sizing: border-box; }
 html, body, #root { min-width: 0; min-height: 100%; }
-body { margin: 0; background: #fbf3d5; }
+html { background: #FBF3D5; }
+body { margin: 0; overflow-x: hidden; background: #FBF3D5; }
 button, input, select, textarea { font: inherit; }
+button { min-width: 44px; min-height: 44px; }
+input:not([type="checkbox"]):not([type="radio"]), select { min-height: 44px; }
+button, [role="button"], input, select, textarea, a { -webkit-tap-highlight-color: rgba(79, 116, 200, .18); }
+button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled) { touch-action: manipulation; }
+:focus-visible { outline: 3px solid #4F74C8; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}

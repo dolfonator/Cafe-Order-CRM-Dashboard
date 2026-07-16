@@ -1,4 +1,4 @@
-import { PRODUCT_CATALOG } from '../../domain/catalog'
+import { getRuntimeCatalog } from '../../domain/catalog'
 import type { DrinkFamily, Powder, ProductSlug, Sweetness } from '../../domain/contracts'
 import type { ProductAliasDictionary } from './types'
 
@@ -27,13 +27,16 @@ export function normalizeAlias(value: unknown): string {
 }
 
 export function normalizeProductSlug(value: unknown): ProductSlug | null {
+  const catalog = getRuntimeCatalog()
   const normalized = normalizeAlias(value)
-  if (normalized in PRODUCT_CATALOG) return normalized as ProductSlug
-  return PRODUCT_ALIASES[normalized] ?? null
+  if (normalized in catalog) return normalized as ProductSlug
+  const alias = PRODUCT_ALIASES[normalized]
+  return alias && alias in catalog ? alias : null
 }
 
 export function productFamily(slug: string | null): DrinkFamily | null {
-  return slug && slug in PRODUCT_CATALOG ? PRODUCT_CATALOG[slug as ProductSlug].family : null
+  const catalog = getRuntimeCatalog()
+  return slug && slug in catalog ? catalog[slug as ProductSlug].family : null
 }
 
 export function defaultLevel(slug: string | null): 1 | null {
