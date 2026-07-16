@@ -74,6 +74,27 @@ function candidatesFromParsed(value: unknown): StructuralOrder[] {
   return [object]
 }
 
+function structuralDraftKey(draft: ImportDraft): string {
+  return JSON.stringify({
+    customerName: draft.customerName,
+    items: draft.items.map(({ productSlug, quantity, level, powder, sweetness }) => ({ productSlug, quantity, level, powder, sweetness })),
+    thermalBags: draft.thermalBags.map(({ coveredCupCount }) => ({ coveredCupCount })),
+    deliveryDate: draft.deliveryDate,
+    address: draft.address,
+    notes: draft.notes,
+  })
+}
+
+function deduplicateStructuralDrafts(drafts: ImportDraft[]): ImportDraft[] {
+  const seen = new Set<string>()
+  return drafts.filter((draft) => {
+    const key = structuralDraftKey(draft)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 export type LocalParseResult = { kind: 'local'; drafts: ImportDraft[] } | { kind: 'free-text' } | { kind: 'empty' }
 
 /** Parses JSON only; callers use this result to guarantee local input does not reach fetch. */
@@ -91,7 +112,7 @@ export function parseLocalInput(rawText: string): LocalParseResult {
         if (!asObject(candidate)) throw new Error('A JSON line must be an object')
         return candidate
       })
-      return { kind: 'local', drafts: candidates.map((candidate, index) => normalizeCandidate(candidate, lines[index])) }
+      return { kind: 'local', drafts: deduplicateStructuralDrafts(candidates.map((candidate, index) => normalizeCandidate(candidate, lines[index]))) }
     } catch {
       return { kind: 'free-text' }
     }
