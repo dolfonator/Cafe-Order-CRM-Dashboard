@@ -1,2 +1,5 @@
-import { PagePlaceholder } from '../components/layout/PagePlaceholder'
-export function OrdersPage() { return <PagePlaceholder title="Orders" description="Manage every order from new to delivered." /> }
+import { OrdersHistory } from '../features/orders/OrdersHistory'
+
+export function OrdersPage() {
+  return <OrdersHistory />
+}
