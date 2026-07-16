@@ -1,0 +1,33 @@
+T6 adversarial import-pipeline audit
+=====================================
+
+Fixture/test count
+- 8 hostile fixture values in test/fixtures/import/hostile/hostile-import-fixtures.ts.
+- 21 hostile assertions: 14 normalization/data-integrity tests and 7 rendered transport/confirmation tests.
+- All 20 required attack categories have explicit fixture coverage or assertions. Free-text cases use deterministic fetch stubs; no Anthropic request is made.
+
+Commands executed
+- env -u ANTHROPIC_API_KEY -u VITE_SUPABASE_URL -u VITE_SUPABASE_ANON_KEY npm exec -- vitest run src/features/import/__tests__/hostile-import.test.ts src/features/import/__tests__/hostile-confirmation.test.tsx
+  Result: FAIL -- 20 passed, 1 failed.
+- npm test
+  Result: FAIL -- 89 passed, 1 failed (90 total); the same hostile failure.
+- npm run build
+  Result: PASS -- TypeScript and Vite production build completed. Vite emitted its pre-existing 500 kB chunk-size warning only.
+
+Passes
+- Taglish, emoji, punctuation, whitespace, split customer messages, later L3 correction, explicit aliases, fake item/bag/order price fields, JSON price/total fields, and multi-drink/multi-bag centavo pricing all normalize through src/domain/pricing.ts.
+- Unknown product typos ("strabery matca" and "hojica."), invalid flavored sweetness, unknown powder/level, and zero/negative/decimal/unsafe-large quantities have no price and remain visibly invalid.
+- Missing address produces a visible review warning. Same-as-last-time resolves only with one matched customer and usable history; missing and ambiguous history remain unresolved.
+- Blank-surrounded JSON Lines and JSON arrays remain local with zero fetch calls. A malformed line and brace-containing prose route to the free-text path rather than silently becoming local orders.
+- Deterministic function stubs cover a successful structural response, HTTP error, invalid response JSON, and aborted request. Structural fake prices are independently ignored and repriced.
+- HTML/script-like customer name, address, and notes render in React inputs as inert text; no script/image element or execution is observed.
+- Rapid double-clicking one confirmation control creates one order in the LocalAdapter test.
+
+Discovered failure: duplicate pasted JSON Lines are not deduplicated
+- Failing test: src/features/import/__tests__/hostile-confirmation.test.tsx:123, "does not turn a duplicate pasted comment into two independently confirmable orders".
+- Reproduction: paste the two byte-identical JSON Lines in test/fixtures/import/hostile/hostile-import-fixtures.ts (duplicatePastedJsonLines), then choose "Create editable drafts". The UI renders two "Editable order draft" cards; expected one, received two.
+- Cause/path: src/features/import/parser.ts:84 and :94 map every JSON object/Line to a draft without duplicate detection. src/features/import/ImportWorkspace.tsx:90 accepts the resulting array directly into state. Each card has its own confirmation action, so an operator can create two orders from a duplicated paste.
+- Impact: duplicate order. It does not change catalog price, customer matching, or React escaping, but it can create an unintended second order and operational/revenue error.
+- Required remediation location: src/features/import/parser.ts:84 and :94 (deduplicate structurally identical imported orders before returning the local result) or src/features/import/ImportWorkspace.tsx:90 (deduplicate before presenting confirmable drafts). Preserve the hostile test and do not trust raw caller totals while implementing it.
+
+Final: FAIL
