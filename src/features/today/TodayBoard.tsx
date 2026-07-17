@@ -1,8 +1,11 @@
+import { Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
 import { OrderCard } from '../orders/OrderCard'
 import { canAdvance, canCancel, nextStatus, operationalStatuses, statusLabels } from '../orders/orderLifecycle'
 import { useOrdersData } from '../orders/useOrdersData'
+import { OrderEditorModal } from '../order-editor/OrderEditorModal'
+import { blankImportDraft, storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
 
 const deliveryDays = new Set([0, 2, 3, 4, 5])
 
@@ -30,11 +33,18 @@ function routeSort(left: StoredOrder, right: StoredOrder): number {
 
 type TodayBoardProps = { adapter?: StorageAdapter; initialDeliveryDate?: string }
 
+type EditorState = { mode: 'create' } | { mode: 'edit'; order: StoredOrder }
+
+function customerName(customers: StoredCustomer[], order: StoredOrder): string | null {
+  return customerFor(customers, order)?.name ?? null
+}
+
 export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: TodayBoardProps) {
   const { adapter, customers, orders, loading, error } = useOrdersData(providedAdapter)
   const [deliveryDate, setDeliveryDate] = useState(initialDeliveryDate ?? relevantDeliveryDate)
   const [view, setView] = useState<'board' | 'run'>('board')
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
+  const [editorState, setEditorState] = useState<EditorState | null>(null)
 
   const selectedOrders = useMemo(
     () => orders.filter((order) => order.deliveryDate === deliveryDate),
@@ -65,6 +75,16 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
   const cancel = async (order: StoredOrder) => {
     if (!canCancel(order.status)) return
     await update(order, { status: 'cancelled' })
+  }
+
+  const deleteOrder = async (order: StoredOrder) => {
+    if (!adapter) return
+    setBusyOrderId(order.id)
+    try {
+      await adapter.deleteOrder(order.id)
+    } finally {
+      setBusyOrderId(null)
+    }
   }
 
   const moveRouteOrder = async (fromIndex: number, direction: -1 | 1) => {
@@ -98,6 +118,15 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
         </label>
       </header>
 
+      <button
+        type="button"
+        disabled={!adapter}
+        onClick={() => setEditorState({ mode: 'create' })}
+        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white disabled:opacity-50"
+      >
+        <Plus size={16} /> New order
+      </button>
+
       <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-[#4F74C8]/20 bg-white/60 p-1">
         <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')} className={`rounded-xl px-3 py-2 text-sm font-bold ${view === 'board' ? 'bg-[#4F74C8] text-white' : 'text-[#36579E]'}`}>Board</button>
         <button type="button" aria-pressed={view === 'run'} onClick={() => setView('run')} className={`rounded-xl px-3 py-2 text-sm font-bold ${view === 'run' ? 'bg-[#4F74C8] text-white' : 'text-[#36579E]'}`}>Run list</button>
@@ -117,7 +146,7 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
                 </div>
                 {statusOrders.length > 0 ? (
                   <div className="space-y-3">
-                    {statusOrders.map((order) => <OrderCard key={order.id} order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} />)}
+                    {statusOrders.map((order) => <OrderCard key={order.id} order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />)}
                   </div>
                 ) : <p className="rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 px-3 py-2 text-sm text-[#697386]">No orders</p>}
               </section>
@@ -155,6 +184,19 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
           </ol>
           {routeOrders.length === 0 && <p className="mt-4 rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 p-3 text-sm text-[#4A5365]">No active delivery stops for this date.</p>}
         </section>
+      )}
+
+      {adapter && editorState && (
+        <OrderEditorModal
+          adapter={adapter}
+          customers={customers}
+          orders={orders}
+          editingOrder={editorState.mode === 'edit' ? editorState.order : null}
+          initialDraft={editorState.mode === 'edit' ? storedOrderToImportDraft(editorState.order, customerName(customers, editorState.order)) : blankImportDraft(deliveryDate)}
+          title={editorState.mode === 'edit' ? 'Edit order' : 'New order'}
+          onClose={() => setEditorState(null)}
+          onSaved={() => setEditorState(null)}
+        />
       )}
     </section>
   )

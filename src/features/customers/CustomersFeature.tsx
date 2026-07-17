@@ -1,9 +1,13 @@
-import { ArrowLeft, ChevronRight, Save, Search } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Plus, Save, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import type { StorageAdapter, StoredOrder } from '../../data/types'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
+import { OrderEditorModal } from '../order-editor/OrderEditorModal'
+import { storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
+import { relevantDeliveryDate } from '../today/TodayBoard'
 import { loadCustomerProfile, saveCustomerProfile, type CustomerProfile } from './customer-profile'
 import { getCustomerSummaries, type CustomerSummary } from './customer-stats'
+import { deleteCustomerCascade } from './deleteCustomerCascade'
 
 type CustomersFeatureProps = { adapter: StorageAdapter }
 
@@ -76,11 +80,23 @@ function CustomerList({ summaries }: { summaries: readonly CustomerSummary[] }) 
   )
 }
 
-function CustomerDetail({ adapter, summary, orders }: { adapter: StorageAdapter; summary: CustomerSummary; orders: readonly StoredOrder[] }) {
+function CustomerDetail({ adapter, summary, orders, customers }: { adapter: StorageAdapter; summary: CustomerSummary; orders: StoredOrder[]; customers: StoredCustomer[] }) {
+  const navigate = useNavigate()
   const [profile, setProfile] = useState<CustomerProfile>({ notes: '', address: summary.addressSummary ?? '', preferences: '' })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [name, setName] = useState(summary.customer.name)
+  const [phone, setPhone] = useState(summary.customer.phone ?? '')
+  const [savingContact, setSavingContact] = useState(false)
+  const [contactSaved, setContactSaved] = useState(false)
+
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0)
+  const [deleting, setDeleting] = useState(false)
+
+  const [repeatOrderOpen, setRepeatOrderOpen] = useState(false)
+
   const customerOrders = useMemo(
     () => orders.filter((order) => order.customerId === summary.customer.id).sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
     [orders, summary.customer.id],
@@ -96,6 +112,11 @@ function CustomerDetail({ adapter, summary, orders }: { adapter: StorageAdapter;
     return () => { active = false }
   }, [adapter, summary.addressSummary, summary.customer.id])
 
+  useEffect(() => {
+    setName(summary.customer.name)
+    setPhone(summary.customer.phone ?? '')
+  }, [summary.customer.id, summary.customer.name, summary.customer.phone])
+
   async function handleSave(): Promise<void> {
     setSaving(true)
     setSaved(false)
@@ -109,6 +130,31 @@ function CustomerDetail({ adapter, summary, orders }: { adapter: StorageAdapter;
     }
   }
 
+  async function handleSaveContact(): Promise<void> {
+    setSavingContact(true)
+    setContactSaved(false)
+    try {
+      await adapter.updateCustomer(summary.customer.id, { name: name.trim() || summary.customer.name, phone: phone.trim() ? phone.trim() : null })
+      setContactSaved(true)
+    } catch {
+      setLoadError('Customer contact details could not be saved.')
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
+  async function handleDeleteCustomer(): Promise<void> {
+    setDeleting(true)
+    try {
+      await deleteCustomerCascade(adapter, summary.customer.id)
+      navigate('/customers')
+    } catch {
+      setLoadError('Customer could not be deleted.')
+      setDeleting(false)
+      setDeleteStep(0)
+    }
+  }
+
   return (
     <section aria-labelledby="customer-name">
       <Link to="/customers" className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-bold text-[#4F74C8] hover:bg-[#4F74C8]/10">
@@ -119,9 +165,32 @@ function CustomerDetail({ adapter, summary, orders }: { adapter: StorageAdapter;
         <h1 id="customer-name" className="mt-1 break-words text-3xl font-black">{summary.customer.name}</h1>
         <p className="mt-2 text-sm text-white/85">{summary.customer.phone ?? 'No phone number'} · {summary.orderCount} non-cancelled {summary.orderCount === 1 ? 'order' : 'orders'}</p>
         <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">Favorite drink: {summary.favoriteDrink ?? 'Not enough order data'}</p>
+        {summary.lastOrder && (
+          <button type="button" onClick={() => setRepeatOrderOpen(true)} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white hover:bg-white/25">
+            <Plus aria-hidden="true" size={16} /> Repeat last order
+          </button>
+        )}
       </div>
 
       <div className="mt-5 space-y-4">
+        <section className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm" aria-labelledby="customer-contact-heading">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="customer-contact-heading" className="text-lg font-black">Contact info</h2>
+            {contactSaved && <span role="status" className="text-sm font-bold text-[#356247]">Saved</span>}
+          </div>
+          <div className="mt-3 space-y-3">
+            <label className="block text-sm font-bold text-[#20242F]">Name
+              <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 block w-full rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="Customer name" />
+            </label>
+            <label className="block text-sm font-bold text-[#20242F]">Phone
+              <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 block w-full rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="09XXXXXXXXX" />
+            </label>
+            <button type="button" onClick={() => void handleSaveContact()} disabled={savingContact || !name.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white disabled:opacity-60">
+              <Save aria-hidden="true" size={17} /> {savingContact ? 'Saving…' : 'Save contact info'}
+            </button>
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm" aria-labelledby="customer-details-heading">
           <div className="flex items-center justify-between gap-3">
             <h2 id="customer-details-heading" className="text-lg font-black">Saved details</h2>
@@ -161,13 +230,55 @@ function CustomerDetail({ adapter, summary, orders }: { adapter: StorageAdapter;
             {customerOrders.length === 0 && <p className="rounded-2xl border border-dashed border-[#4F74C8]/35 p-4 text-sm text-[#4A5365]">No order history yet.</p>}
           </div>
         </section>
+
+        <section className="rounded-2xl border border-rose-300/60 bg-rose-50 p-4" aria-labelledby="danger-zone-heading">
+          <h2 id="danger-zone-heading" className="text-lg font-black text-rose-900">Danger zone</h2>
+          <p className="mt-1 text-sm text-rose-800">Deletes this customer and all of their orders permanently.</p>
+          {deleteStep === 0 && (
+            <button type="button" onClick={() => setDeleteStep(1)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-400 px-4 text-sm font-bold text-rose-800">
+              <Trash2 aria-hidden="true" size={16} /> Delete customer
+            </button>
+          )}
+          {deleteStep === 1 && (
+            <div role="alert" className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-rose-950">
+              <p>Delete {summary.customer.name} and their {customerOrders.length} {customerOrders.length === 1 ? 'order' : 'orders'}? This cannot be undone.</p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" onClick={() => setDeleteStep(2)} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white">Continue</button>
+                <button type="button" onClick={() => setDeleteStep(0)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E]">Cancel</button>
+              </div>
+            </div>
+          )}
+          {deleteStep === 2 && (
+            <div role="alert" className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-rose-950">
+              <p>This is permanent. Delete {summary.customer.name} permanently?</p>
+              <div className="mt-2 flex gap-2">
+                <button type="button" disabled={deleting} onClick={() => void handleDeleteCustomer()} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">Yes, delete permanently</button>
+                <button type="button" disabled={deleting} onClick={() => setDeleteStep(0)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] disabled:opacity-50">Cancel</button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
+
+      {repeatOrderOpen && summary.lastOrder && (
+        <OrderEditorModal
+          adapter={adapter}
+          customers={customers}
+          orders={orders}
+          editingOrder={null}
+          initialDraft={{ ...storedOrderToImportDraft(summary.lastOrder, summary.customer.name), deliveryDate: relevantDeliveryDate(), rawSource: `Repeat of order ${summary.lastOrder.id}` }}
+          title="Repeat last order"
+          onClose={() => setRepeatOrderOpen(false)}
+          onSaved={() => setRepeatOrderOpen(false)}
+        />
+      )}
     </section>
   )
 }
 
 export function CustomersFeature({ adapter }: CustomersFeatureProps) {
   const [summaries, setSummaries] = useState<CustomerSummary[] | null>(null)
+  const [customers, setCustomers] = useState<StoredCustomer[]>([])
   const [orders, setOrders] = useState<StoredOrder[]>([])
   const [error, setError] = useState<string | null>(null)
   const [searchParams] = useSearchParams()
@@ -177,9 +288,10 @@ export function CustomersFeature({ adapter }: CustomersFeatureProps) {
     let active = true
     async function load(): Promise<void> {
       try {
-        const [customers, loadedOrders] = await Promise.all([adapter.listCustomers(), adapter.listOrders()])
+        const [loadedCustomers, loadedOrders] = await Promise.all([adapter.listCustomers(), adapter.listOrders()])
         if (active) {
-          setSummaries(getCustomerSummaries(customers, loadedOrders))
+          setSummaries(getCustomerSummaries(loadedCustomers, loadedOrders))
+          setCustomers(loadedCustomers)
           setOrders(loadedOrders)
         }
       } catch {
@@ -194,6 +306,6 @@ export function CustomersFeature({ adapter }: CustomersFeatureProps) {
   if (error) return <p role="alert" className="rounded-2xl bg-red-50 p-4 font-semibold text-red-700">{error}</p>
   if (!summaries) return <section><h1 className="text-3xl font-black tracking-tight text-[#20242F]">Customers</h1><p className="pt-4 text-sm font-semibold text-[#4A5365]">Loading customers…</p></section>
   const selected = summaries.find((summary) => summary.customer.id === customerId)
-  if (customerId && selected) return <CustomerDetail adapter={adapter} summary={selected} orders={orders} />
+  if (customerId && selected) return <CustomerDetail adapter={adapter} summary={selected} orders={orders} customers={customers} />
   return <CustomerList summaries={summaries} />
 }

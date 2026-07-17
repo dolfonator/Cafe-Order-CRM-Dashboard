@@ -1,5 +1,9 @@
+import { Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
+import { relevantDeliveryDate } from '../today/TodayBoard'
+import { OrderEditorModal } from '../order-editor/OrderEditorModal'
+import { blankImportDraft, storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
 import { OrderCard } from './OrderCard'
 import { canAdvance, canCancel, nextStatus, operationalStatuses, statusLabels } from './orderLifecycle'
 import { useOrdersData } from './useOrdersData'
@@ -10,12 +14,15 @@ function customerFor(customers: StoredCustomer[], order: StoredOrder): StoredCus
 
 type OrdersHistoryProps = { adapter?: StorageAdapter }
 
+type EditorState = { mode: 'create' } | { mode: 'edit'; order: StoredOrder }
+
 export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) {
   const { adapter, customers, orders, loading, error } = useOrdersData(providedAdapter)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'all' | (typeof operationalStatuses)[number]>('all')
   const [deliveryDate, setDeliveryDate] = useState('')
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
+  const [editorState, setEditorState] = useState<EditorState | null>(null)
 
   const visibleOrders = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -53,6 +60,16 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
     if (canCancel(order.status)) await update(order, { status: 'cancelled' })
   }
 
+  const deleteOrder = async (order: StoredOrder) => {
+    if (!adapter) return
+    setBusyOrderId(order.id)
+    try {
+      await adapter.deleteOrder(order.id)
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
+
   return (
     <section className="min-w-0">
       <header>
@@ -60,6 +77,15 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
         <h1 className="mt-1 text-3xl font-black tracking-tight text-[#20242F]">Orders</h1>
         <p className="mt-1 text-sm text-[#4A5365]">Search, review, and update your order history.</p>
       </header>
+
+      <button
+        type="button"
+        disabled={!adapter}
+        onClick={() => setEditorState({ mode: 'create' })}
+        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white disabled:opacity-50"
+      >
+        <Plus size={16} /> New order
+      </button>
 
       <div className="mt-5 grid gap-3 rounded-2xl border border-[#4F74C8]/20 bg-white/60 p-3">
         <label className="grid gap-1 text-sm font-semibold text-[#20242F]">
@@ -89,11 +115,24 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
           {visibleOrders.map((order) => (
             <div key={order.id}>
               <p className="mb-1 px-1 text-xs font-bold uppercase tracking-[0.1em] text-[#697386]">{order.deliveryDate ?? 'No delivery date'} · {statusLabels[order.status]}</p>
-              <OrderCard order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} />
+              <OrderCard order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />
             </div>
           ))}
           {visibleOrders.length === 0 && <p className="rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 p-4 text-sm text-[#4A5365]">No orders match these filters.</p>}
         </div>
+      )}
+
+      {adapter && editorState && (
+        <OrderEditorModal
+          adapter={adapter}
+          customers={customers}
+          orders={orders}
+          editingOrder={editorState.mode === 'edit' ? editorState.order : null}
+          initialDraft={editorState.mode === 'edit' ? storedOrderToImportDraft(editorState.order, customerFor(customers, editorState.order)?.name ?? null) : blankImportDraft(relevantDeliveryDate())}
+          title={editorState.mode === 'edit' ? 'Edit order' : 'New order'}
+          onClose={() => setEditorState(null)}
+          onSaved={() => setEditorState(null)}
+        />
       )}
     </section>
   )
