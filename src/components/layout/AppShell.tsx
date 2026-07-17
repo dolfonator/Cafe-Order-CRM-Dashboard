@@ -1,7 +1,7 @@
 import { BarChart3, FileUp, Home, Settings, ShoppingBag, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
-import gellyLogo from '../../assets/brand/gelly-logo.png'
+import gellyLogo from '../../assets/brand/gelly-logo-mark.png'
 
 type NavigationItem = { label: string; path: string; icon: LucideIcon }
 

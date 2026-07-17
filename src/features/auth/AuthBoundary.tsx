@@ -1,7 +1,7 @@
 import { LoaderCircle } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import gellyLogo from '../../assets/brand/gelly-logo.png'
+import gellyLogo from '../../assets/brand/gelly-logo-mark.png'
 import { DASHBOARD_AUTH_EMAIL, getAuthClient, isDemoMode, type AuthClient } from './supabaseAuth'
 
 type AuthState = 'loading' | 'signed-out' | 'signed-in'
