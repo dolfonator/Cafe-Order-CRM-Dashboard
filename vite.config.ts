@@ -15,8 +15,8 @@ export default defineConfig({
         type: 'module',
       },
       manifest: {
-        name: 'Order Dashboard',
-        short_name: 'Orders',
+        name: 'Gelly Dashboard',
+        short_name: 'Gelly',
         description: 'Mobile-first order management for a Metro Manila matcha cafe.',
         theme_color: '#4F74C8',
         background_color: '#FBF3D5',

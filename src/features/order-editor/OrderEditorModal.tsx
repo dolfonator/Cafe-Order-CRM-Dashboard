@@ -39,15 +39,15 @@ export function OrderEditorModal({ adapter, customers, orders, initialDraft, edi
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[#FBF3D5] p-4 shadow-lg sm:rounded-3xl">
+    <div role="dialog" aria-modal="true" aria-label={title} className="motion-fade-in fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+      <div className="motion-fade-up max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[#FBF3D5] p-4 shadow-lg sm:rounded-3xl">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-black text-[#20242f]">{title}</h2>
-          <button type="button" aria-label="Close editor" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[#4A5365] hover:bg-black/5">
+          <button type="button" aria-label="Close editor" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[#4A5365] transition-colors duration-200 hover:bg-black/5 active:scale-95 motion-safe:transition-transform">
             <X size={20} />
           </button>
         </div>
-        {message && <p role="alert" className="mb-3 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{message}</p>}
+        {message && <p role="alert" className="motion-fade-in mb-3 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{message}</p>}
         <OrderEditorCard draft={draft} customers={customers} orders={orders} confirming={confirming} onChange={setDraft} onConfirm={() => void confirm()} />
       </div>
     </div>
