@@ -9,6 +9,10 @@ type OrderCardProps = {
   onAdvance: (order: StoredOrder, paymentConfirmed: boolean) => Promise<void>
   onCancel: (order: StoredOrder) => Promise<void>
   onPaymentReceived: (order: StoredOrder, received: boolean) => Promise<void>
+  /** Opens the shared order editor prefilled from this order. Renders an "Edit order" button when provided. */
+  onEdit?: (order: StoredOrder) => void
+  /** Hard-deletes the order (distinct from "Cancel order", which only sets status to cancelled). Renders a "Delete order" button, gated by an inline confirmation, when provided. */
+  onDelete?: (order: StoredOrder) => Promise<void>
 }
 
 export function formatPhp(centavos: number): string {
@@ -19,14 +23,27 @@ export function cupCount(order: StoredOrder): number {
   return order.items.reduce((total, item) => total + item.quantity, 0)
 }
 
-export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, onPaymentReceived }: OrderCardProps) {
+export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, onPaymentReceived, onEdit, onDelete }: OrderCardProps) {
   const [confirmingPayment, setConfirmingPayment] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const next = nextStatus(order.status)
   const paymentNeeded = requiresPaymentConfirmation(order)
 
   const advance = async (paymentConfirmed: boolean) => {
     await onAdvance(order, paymentConfirmed)
     setConfirmingPayment(false)
+  }
+
+  const confirmDelete = async () => {
+    if (!onDelete) return
+    setDeleting(true)
+    try {
+      await onDelete(order)
+    } finally {
+      setDeleting(false)
+      setConfirmingDelete(false)
+    }
   }
 
   return (
@@ -72,6 +89,16 @@ export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, 
             Cancel order
           </button>
         )}
+        {onEdit && (
+          <button type="button" disabled={busy} onClick={() => onEdit(order)} className="rounded-xl border border-[#4F74C8]/35 px-3 py-2 text-sm font-semibold text-[#36579E] disabled:opacity-50">
+            Edit order
+          </button>
+        )}
+        {onDelete && !confirmingDelete && (
+          <button type="button" disabled={busy} onClick={() => setConfirmingDelete(true)} className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 underline underline-offset-2 disabled:opacity-50">
+            Delete order
+          </button>
+        )}
       </div>
 
       {confirmingPayment && (
@@ -80,6 +107,16 @@ export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, 
           <div className="mt-2 flex gap-2">
             <button type="button" disabled={busy} onClick={() => void advance(true)} className="rounded-lg bg-[#4F74C8] px-3 py-1.5 font-bold text-white disabled:opacity-50">Confirm advance to paid</button>
             <button type="button" disabled={busy} onClick={() => setConfirmingPayment(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] disabled:opacity-50">Keep pending</button>
+          </div>
+        </div>
+      )}
+
+      {confirmingDelete && (
+        <div role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-950">
+          <p>Delete this order permanently? This cannot be undone.</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" disabled={busy || deleting} onClick={() => void confirmDelete()} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">Confirm delete order</button>
+            <button type="button" disabled={busy || deleting} onClick={() => setConfirmingDelete(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] disabled:opacity-50">Keep order</button>
           </div>
         </div>
       )}

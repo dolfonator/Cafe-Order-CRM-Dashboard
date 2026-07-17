@@ -107,4 +107,67 @@ describe('TodayBoard', () => {
     await second.updateOrder(demoOrders[1].id, { paymentReceived: true })
     await waitFor(() => expect(screen.getByText('Receipt received')).toBeInTheDocument())
   })
+
+  it('creates a manual new order through the shared editor, persisted with engine-priced totals', async () => {
+    const adapter = await createAdapter()
+    const user = userEvent.setup()
+    render(<TodayBoard adapter={adapter} initialDeliveryDate={deliveryDate} />)
+    await screen.findByRole('heading', { name: 'Mika Santos' })
+
+    await user.click(screen.getByRole('button', { name: 'New order' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New order' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Customer name' }), 'Jenna Cruz')
+    await user.type(within(dialog).getByRole('textbox', { name: 'Address' }), 'Taguig City')
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm order' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New order' })).not.toBeInTheDocument())
+    const orders = await adapter.listOrders()
+    const created = orders.find((order) => order.addressSnapshot === 'Taguig City')
+    expect(created).toBeDefined()
+    // The default drink row is one Matcha Latte, level 1, Yumeno — 20000 centavos per the demo catalog.
+    // This value is asserted to prove the engine priced it, not any UI-supplied number.
+    expect(created!.subtotalCentavos).toBe(20000)
+    expect(created!.totalCentavos).toBe(20000)
+    expect(created!.deliveryDate).toBe(deliveryDate)
+  })
+
+  it('edits an order through the shared editor, reprices via the engine, and leaves no orphan order_items', async () => {
+    const adapter = await createAdapter()
+    const user = userEvent.setup()
+    render(<TodayBoard adapter={adapter} initialDeliveryDate={deliveryDate} />)
+
+    const paoloCard = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
+    await user.click(within(paoloCard).getByRole('button', { name: 'Edit order' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit order' })
+    const quantityInput = within(dialog).getByRole('spinbutton', { name: 'Quantity 1' })
+    await user.clear(quantityInput)
+    await user.type(quantityInput, '3')
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm order' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit order' })).not.toBeInTheDocument())
+    const updated = await adapter.getOrder(demoOrders[1].id)
+    expect(updated!.items).toHaveLength(1)
+    expect(updated!.items[0].quantity).toBe(3)
+    // Strawberry Hojicha level 2 / Yumeno prices to 22000 centavos in the demo catalog; three units reprice to 66000.
+    expect(updated!.items[0].lineTotalCentavos).toBe(66000)
+    expect(updated!.subtotalCentavos).toBe(66000)
+    expect(updated!.totalCentavos).toBe(66000)
+    const orderItems = await adapter.listOrderItems(demoOrders[1].id)
+    expect(orderItems).toHaveLength(1)
+  })
+
+  it('deletes an order after a single confirmation, leaving no orphan order_items', async () => {
+    const adapter = await createAdapter()
+    const user = userEvent.setup()
+    render(<TodayBoard adapter={adapter} initialDeliveryDate={deliveryDate} />)
+
+    const paoloCard = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
+    await user.click(within(paoloCard).getByRole('button', { name: 'Delete order' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Delete this order permanently?')
+    await user.click(screen.getByRole('button', { name: 'Confirm delete order' }))
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Paolo Reyes' })).not.toBeInTheDocument())
+    expect(await adapter.getOrder(demoOrders[1].id)).toBeNull()
+    expect(await adapter.listOrderItems(demoOrders[1].id)).toHaveLength(0)
+  })
 })
