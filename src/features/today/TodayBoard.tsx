@@ -106,15 +106,14 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
 
   return (
     <section className="min-w-0">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#4F74C8]">8–9 AM delivery run</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight text-[#20242F]">Today</h1>
-          <p className="mt-1 text-sm text-[#4A5365]">Orders close at 8 PM for the next morning.</p>
+      <header className="motion-fade-up flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-black tracking-tight text-[#20242F]">Today</h1>
+          <p className="mt-1.5 text-sm leading-5 text-[#4A5365]">8–9 AM delivery run · orders close at 8 PM for the next morning.</p>
         </div>
         <label className="grid gap-1 text-sm font-semibold text-[#20242F]">
           Delivery date
-          <input aria-label="Delivery date" type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} className="rounded-xl border border-[#4F74C8]/30 bg-white px-3 py-2 text-[#20242F]" />
+          <input aria-label="Delivery date" type="date" value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} className="rounded-xl border border-[#4F74C8]/30 bg-white px-3 py-2 text-[#20242F] transition-colors focus:border-[#4F74C8]" />
         </label>
       </header>
 
@@ -122,33 +121,38 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
         type="button"
         disabled={!adapter}
         onClick={() => setEditorState({ mode: 'create' })}
-        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white disabled:opacity-50"
+        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white shadow-sm transition duration-200 hover:bg-[#365AA9] active:scale-[0.98] motion-safe:transition-transform disabled:opacity-50 disabled:active:scale-100"
       >
         <Plus size={16} /> New order
       </button>
 
       <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-[#4F74C8]/20 bg-white/60 p-1">
-        <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')} className={`rounded-xl px-3 py-2 text-sm font-bold ${view === 'board' ? 'bg-[#4F74C8] text-white' : 'text-[#36579E]'}`}>Board</button>
-        <button type="button" aria-pressed={view === 'run'} onClick={() => setView('run')} className={`rounded-xl px-3 py-2 text-sm font-bold ${view === 'run' ? 'bg-[#4F74C8] text-white' : 'text-[#36579E]'}`}>Run list</button>
+        <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')} className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors duration-200 active:scale-[0.98] motion-safe:transition-transform ${view === 'board' ? 'bg-[#4F74C8] text-white shadow-sm' : 'text-[#36579E] hover:bg-[#4F74C8]/10'}`}>Board</button>
+        <button type="button" aria-pressed={view === 'run'} onClick={() => setView('run')} className={`rounded-xl px-3 py-2 text-sm font-bold transition-colors duration-200 active:scale-[0.98] motion-safe:transition-transform ${view === 'run' ? 'bg-[#4F74C8] text-white shadow-sm' : 'text-[#36579E] hover:bg-[#4F74C8]/10'}`}>Run list</button>
       </div>
 
-      {loading && <p className="mt-6 text-sm text-[#4A5365]">Loading orders…</p>}
-      {error && <p role="alert" className="mt-6 rounded-xl bg-rose-100 p-3 text-sm text-rose-900">{error.message}</p>}
+      {loading && (
+        <div className="mt-6 space-y-3" aria-hidden="true">
+          {[0, 1].map((key) => <div key={key} className="h-24 animate-pulse rounded-2xl border border-[#4F74C8]/15 bg-white/60" />)}
+          <p className="sr-only" role="status">Loading orders…</p>
+        </div>
+      )}
+      {error && <p role="alert" className="motion-fade-in mt-6 rounded-xl bg-rose-100 p-3 text-sm text-rose-900">{error.message}</p>}
       {!loading && !error && view === 'board' && (
-        <div className="mt-5 space-y-5" aria-label="Order status board">
+        <div className="motion-fade-in mt-5 space-y-5" aria-label="Order status board">
           {operationalStatuses.map((status) => {
             const statusOrders = selectedOrders.filter((order) => order.status === status)
             return (
               <section key={status} aria-labelledby={`status-${status}`} className="min-w-0">
-                <div className="mb-2 flex items-baseline justify-between gap-3">
-                  <h2 id={`status-${status}`} className="text-sm font-black uppercase tracking-[0.12em] text-[#36579E]">{statusLabels[status]}</h2>
-                  <span className="text-sm font-semibold text-[#4A5365]">{statusOrders.length}</span>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h2 id={`status-${status}`} className="text-sm font-black uppercase tracking-[0.1em] text-[#36579E]">{statusLabels[status]}</h2>
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[#4F74C8]/12 text-xs font-bold text-[#36579E]">{statusOrders.length}</span>
                 </div>
                 {statusOrders.length > 0 ? (
                   <div className="space-y-3">
                     {statusOrders.map((order) => <OrderCard key={order.id} order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />)}
                   </div>
-                ) : <p className="rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 px-3 py-2 text-sm text-[#697386]">No orders</p>}
+                ) : <p className="rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 px-3 py-2.5 text-sm text-[#697386]">No orders</p>}
               </section>
             )
           })}
@@ -156,7 +160,7 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
       )}
 
       {!loading && !error && view === 'run' && (
-        <section className="mt-5" aria-labelledby="run-list-heading">
+        <section className="motion-fade-in mt-5" aria-labelledby="run-list-heading">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="run-list-heading" className="text-xl font-black text-[#20242F]">Delivery run</h2>
             <span className="text-sm text-[#4A5365]">{routeOrders.length} stops</span>
@@ -166,7 +170,7 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
             {routeOrders.map((order, index) => {
               const customer = customerFor(customers, order)
               return (
-                <li key={order.id} className="flex min-w-0 gap-3 rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm">
+                <li key={order.id} className="flex min-w-0 gap-3 rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                   <span aria-label={`Stop ${index + 1}`} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#4F74C8] text-sm font-black text-white">{index + 1}</span>
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-bold text-[#20242F]">{customer?.name ?? 'Unknown customer'}</h3>
@@ -175,8 +179,8 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
                     <p className="mt-2 text-sm font-semibold text-[#36579E]">{statusLabels[order.status]} · {order.items.reduce((cups, item) => cups + item.quantity, 0)} cups</p>
                   </div>
                   <div className="flex shrink-0 flex-col gap-1">
-                    <button type="button" aria-label={`Move ${customer?.name ?? 'order'} up`} disabled={index === 0 || busyOrderId !== null} onClick={() => void moveRouteOrder(index, -1)} className="rounded-lg border border-[#4F74C8]/30 px-2 py-1 text-sm font-bold text-[#36579E] disabled:opacity-35">↑</button>
-                    <button type="button" aria-label={`Move ${customer?.name ?? 'order'} down`} disabled={index === routeOrders.length - 1 || busyOrderId !== null} onClick={() => void moveRouteOrder(index, 1)} className="rounded-lg border border-[#4F74C8]/30 px-2 py-1 text-sm font-bold text-[#36579E] disabled:opacity-35">↓</button>
+                    <button type="button" aria-label={`Move ${customer?.name ?? 'order'} up`} disabled={index === 0 || busyOrderId !== null} onClick={() => void moveRouteOrder(index, -1)} className="rounded-lg border border-[#4F74C8]/30 px-2 py-1 text-sm font-bold text-[#36579E] transition-colors duration-200 hover:bg-[#4F74C8]/10 active:scale-95 motion-safe:transition-transform disabled:opacity-35 disabled:active:scale-100">↑</button>
+                    <button type="button" aria-label={`Move ${customer?.name ?? 'order'} down`} disabled={index === routeOrders.length - 1 || busyOrderId !== null} onClick={() => void moveRouteOrder(index, 1)} className="rounded-lg border border-[#4F74C8]/30 px-2 py-1 text-sm font-bold text-[#36579E] transition-colors duration-200 hover:bg-[#4F74C8]/10 active:scale-95 motion-safe:transition-transform disabled:opacity-35 disabled:active:scale-100">↓</button>
                   </div>
                 </li>
               )

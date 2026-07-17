@@ -38,14 +38,14 @@ function CustomerList({ summaries }: { summaries: readonly CustomerSummary[] }) 
 
   return (
     <section aria-labelledby="customers-heading">
-      <div className="mb-5 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[#4F74C8]">CRM</p>
-          <h1 id="customers-heading" className="mt-1 text-3xl font-black tracking-tight text-[#20242F]">Customers</h1>
+      <div className="motion-fade-up mb-5 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 id="customers-heading" className="text-3xl font-black tracking-tight text-[#20242F]">Customers</h1>
+          <p className="mt-1.5 text-sm text-[#4A5365]">Delivery contacts and order history.</p>
         </div>
-        <p className="mb-1 shrink-0 text-sm text-[#4A5365]">{summaries.length} total</p>
+        <p className="mb-1 shrink-0 text-sm font-semibold text-[#4A5365]">{summaries.length} total</p>
       </div>
-      <label className="mb-4 flex min-h-12 items-center gap-2 rounded-2xl border border-[#4F74C8]/30 bg-white px-3 shadow-sm" htmlFor="customer-search">
+      <label className="mb-4 flex min-h-12 items-center gap-2 rounded-2xl border border-[#4F74C8]/30 bg-white px-3 shadow-sm transition-colors focus-within:border-[#4F74C8]" htmlFor="customer-search">
         <Search aria-hidden="true" size={19} className="shrink-0 text-[#4F74C8]" />
         <span className="sr-only">Search customers</span>
         <input
@@ -57,12 +57,12 @@ function CustomerList({ summaries }: { summaries: readonly CustomerSummary[] }) 
           className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-[#4A5365]/70"
         />
       </label>
-      <div className="space-y-3" aria-live="polite">
+      <div className="motion-fade-in space-y-3" aria-live="polite">
         {filtered.map((summary) => (
           <Link
             key={summary.customer.id}
             to={`/customers?customer=${encodeURIComponent(summary.customer.id)}`}
-            className="flex min-w-0 items-center gap-3 rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-colors hover:border-[#4F74C8]/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F74C8]"
+            className="flex min-w-0 items-center gap-3 rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#4F74C8]/60 hover:shadow-md active:translate-y-0 motion-safe:transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4F74C8]"
             aria-label={`View ${summary.customer.name}`}
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#4F74C8]/12 text-lg font-black text-[#4F74C8]">{summary.customer.name.slice(0, 1)}</span>
@@ -157,35 +157,35 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
 
   return (
     <section aria-labelledby="customer-name">
-      <Link to="/customers" className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-bold text-[#4F74C8] hover:bg-[#4F74C8]/10">
+      <Link to="/customers" className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-bold text-[#4F74C8] transition-colors duration-200 hover:bg-[#4F74C8]/10">
         <ArrowLeft aria-hidden="true" size={19} /> All customers
       </Link>
-      <div className="rounded-3xl bg-[#4F74C8] p-5 text-white shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-white/75">Customer profile</p>
+      <div className="motion-fade-up rounded-3xl bg-[#4F74C8] p-5 text-white shadow-sm">
+        <p className="text-xs font-semibold text-white/75">Customer profile</p>
         <h1 id="customer-name" className="mt-1 break-words text-3xl font-black">{summary.customer.name}</h1>
         <p className="mt-2 text-sm text-white/85">{summary.customer.phone ?? 'No phone number'} · {summary.orderCount} non-cancelled {summary.orderCount === 1 ? 'order' : 'orders'}</p>
         <p className="mt-3 rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">Favorite drink: {summary.favoriteDrink ?? 'Not enough order data'}</p>
         {summary.lastOrder && (
-          <button type="button" onClick={() => setRepeatOrderOpen(true)} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white hover:bg-white/25">
+          <button type="button" onClick={() => setRepeatOrderOpen(true)} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white/15 px-4 text-sm font-bold text-white transition duration-200 hover:bg-white/25 active:scale-[0.98] motion-safe:transition-transform">
             <Plus aria-hidden="true" size={16} /> Repeat last order
           </button>
         )}
       </div>
 
-      <div className="mt-5 space-y-4">
+      <div className="motion-fade-in mt-5 space-y-4">
         <section className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm" aria-labelledby="customer-contact-heading">
           <div className="flex items-center justify-between gap-3">
             <h2 id="customer-contact-heading" className="text-lg font-black">Contact info</h2>
-            {contactSaved && <span role="status" className="text-sm font-bold text-[#356247]">Saved</span>}
+            {contactSaved && <span role="status" className="motion-fade-in text-sm font-bold text-[#356247]">Saved</span>}
           </div>
           <div className="mt-3 space-y-3">
             <label className="block text-sm font-bold text-[#20242F]">Name
-              <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 block w-full rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="Customer name" />
+              <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 block w-full rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none transition-colors focus:border-[#4F74C8]" placeholder="Customer name" />
             </label>
             <label className="block text-sm font-bold text-[#20242F]">Phone
-              <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 block w-full rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="09XXXXXXXXX" />
+              <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 block w-full rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none transition-colors focus:border-[#4F74C8]" placeholder="09XXXXXXXXX" />
             </label>
-            <button type="button" onClick={() => void handleSaveContact()} disabled={savingContact || !name.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white disabled:opacity-60">
+            <button type="button" onClick={() => void handleSaveContact()} disabled={savingContact || !name.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white transition duration-200 hover:bg-[#365AA9] active:scale-[0.98] motion-safe:transition-transform disabled:opacity-60 disabled:active:scale-100">
               <Save aria-hidden="true" size={17} /> {savingContact ? 'Saving…' : 'Save contact info'}
             </button>
           </div>
@@ -194,22 +194,22 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
         <section className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm" aria-labelledby="customer-details-heading">
           <div className="flex items-center justify-between gap-3">
             <h2 id="customer-details-heading" className="text-lg font-black">Saved details</h2>
-            {saved && <span role="status" className="text-sm font-bold text-[#356247]">Saved</span>}
+            {saved && <span role="status" className="motion-fade-in text-sm font-bold text-[#356247]">Saved</span>}
           </div>
           <div className="mt-3 space-y-3">
             <label className="block text-sm font-bold text-[#20242F]">Address
-              <textarea value={profile.address} onChange={(event) => setProfile({ ...profile, address: event.target.value })} rows={2} className="mt-1 block w-full resize-y rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="Delivery address" />
+              <textarea value={profile.address} onChange={(event) => setProfile({ ...profile, address: event.target.value })} rows={2} className="mt-1 block w-full resize-y rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none transition-colors focus:border-[#4F74C8]" placeholder="Delivery address" />
             </label>
             <label className="block text-sm font-bold text-[#20242F]">Notes
-              <textarea value={profile.notes} onChange={(event) => setProfile({ ...profile, notes: event.target.value })} rows={3} className="mt-1 block w-full resize-y rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="Helpful service notes" />
+              <textarea value={profile.notes} onChange={(event) => setProfile({ ...profile, notes: event.target.value })} rows={3} className="mt-1 block w-full resize-y rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none transition-colors focus:border-[#4F74C8]" placeholder="Helpful service notes" />
             </label>
             <label className="block text-sm font-bold text-[#20242F]">Saved preferences
-              <textarea value={profile.preferences} onChange={(event) => setProfile({ ...profile, preferences: event.target.value })} rows={2} className="mt-1 block w-full resize-y rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none focus:border-[#4F74C8]" placeholder="Sweetness, pickup, or delivery preferences" />
+              <textarea value={profile.preferences} onChange={(event) => setProfile({ ...profile, preferences: event.target.value })} rows={2} className="mt-1 block w-full resize-y rounded-xl border border-[#4F74C8]/30 bg-[#FBF3D5]/35 p-3 font-normal outline-none transition-colors focus:border-[#4F74C8]" placeholder="Sweetness, pickup, or delivery preferences" />
             </label>
-            <button type="button" onClick={() => void handleSave()} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white disabled:opacity-60">
+            <button type="button" onClick={() => void handleSave()} disabled={saving} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#4F74C8] px-4 text-sm font-bold text-white transition duration-200 hover:bg-[#365AA9] active:scale-[0.98] motion-safe:transition-transform disabled:opacity-60 disabled:active:scale-100">
               <Save aria-hidden="true" size={17} /> {saving ? 'Saving…' : 'Save details'}
             </button>
-            {loadError && <p role="alert" className="text-sm font-semibold text-red-700">{loadError}</p>}
+            {loadError && <p role="alert" className="motion-fade-in text-sm font-semibold text-red-700">{loadError}</p>}
           </div>
         </section>
 
@@ -217,7 +217,7 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
           <h2 id="order-history-heading" className="mb-3 text-lg font-black">Order history</h2>
           <div className="space-y-3">
             {customerOrders.map((order) => (
-              <article key={order.id} className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm">
+              <article key={order.id} className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="font-bold">{formatDate(order)}</p><p className="mt-1 text-sm capitalize text-[#4A5365]">{statusLabel(order.status)} · {order.paymentReceived ? 'Paid' : 'Unpaid'}</p></div>
                   <p className="shrink-0 font-black text-[#4F74C8]">{formatCurrency(order.totalCentavos)}</p>
@@ -235,25 +235,25 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
           <h2 id="danger-zone-heading" className="text-lg font-black text-rose-900">Danger zone</h2>
           <p className="mt-1 text-sm text-rose-800">Deletes this customer and all of their orders permanently.</p>
           {deleteStep === 0 && (
-            <button type="button" onClick={() => setDeleteStep(1)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-400 px-4 text-sm font-bold text-rose-800">
+            <button type="button" onClick={() => setDeleteStep(1)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-rose-400 px-4 text-sm font-bold text-rose-800 transition-colors duration-200 hover:bg-rose-100">
               <Trash2 aria-hidden="true" size={16} /> Delete customer
             </button>
           )}
           {deleteStep === 1 && (
-            <div role="alert" className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-rose-950">
+            <div role="alert" className="motion-fade-up mt-3 rounded-xl bg-rose-100 p-3 text-sm text-rose-950">
               <p>Delete {summary.customer.name} and their {customerOrders.length} {customerOrders.length === 1 ? 'order' : 'orders'}? This cannot be undone.</p>
               <div className="mt-2 flex gap-2">
-                <button type="button" onClick={() => setDeleteStep(2)} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white">Continue</button>
-                <button type="button" onClick={() => setDeleteStep(0)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E]">Cancel</button>
+                <button type="button" onClick={() => setDeleteStep(2)} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white transition duration-200 hover:bg-rose-800 active:scale-[0.97] motion-safe:transition-transform">Continue</button>
+                <button type="button" onClick={() => setDeleteStep(0)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] transition-colors duration-200 hover:bg-black/5">Cancel</button>
               </div>
             </div>
           )}
           {deleteStep === 2 && (
-            <div role="alert" className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-rose-950">
+            <div role="alert" className="motion-fade-up mt-3 rounded-xl bg-rose-100 p-3 text-sm text-rose-950">
               <p>This is permanent. Delete {summary.customer.name} permanently?</p>
               <div className="mt-2 flex gap-2">
-                <button type="button" disabled={deleting} onClick={() => void handleDeleteCustomer()} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">Yes, delete permanently</button>
-                <button type="button" disabled={deleting} onClick={() => setDeleteStep(0)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] disabled:opacity-50">Cancel</button>
+                <button type="button" disabled={deleting} onClick={() => void handleDeleteCustomer()} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white transition duration-200 hover:bg-rose-800 active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50">Yes, delete permanently</button>
+                <button type="button" disabled={deleting} onClick={() => setDeleteStep(0)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] transition-colors duration-200 hover:bg-black/5 disabled:opacity-50">Cancel</button>
               </div>
             </div>
           )}
@@ -303,8 +303,8 @@ export function CustomersFeature({ adapter }: CustomersFeatureProps) {
     return () => { active = false; unsubscribe() }
   }, [adapter])
 
-  if (error) return <p role="alert" className="rounded-2xl bg-red-50 p-4 font-semibold text-red-700">{error}</p>
-  if (!summaries) return <section><h1 className="text-3xl font-black tracking-tight text-[#20242F]">Customers</h1><p className="pt-4 text-sm font-semibold text-[#4A5365]">Loading customers…</p></section>
+  if (error) return <p role="alert" className="motion-fade-in rounded-2xl bg-red-50 p-4 font-semibold text-red-700">{error}</p>
+  if (!summaries) return <section><h1 className="text-3xl font-black tracking-tight text-[#20242F]">Customers</h1><p className="motion-fade-in pt-4 text-sm font-semibold text-[#4A5365]">Loading customers…</p></section>
   const selected = summaries.find((summary) => summary.customer.id === customerId)
   if (customerId && selected) return <CustomerDetail adapter={adapter} summary={selected} orders={orders} customers={customers} />
   return <CustomerList summaries={summaries} />

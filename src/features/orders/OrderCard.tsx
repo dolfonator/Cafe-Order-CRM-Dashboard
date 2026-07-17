@@ -47,13 +47,13 @@ export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, 
   }
 
   return (
-    <article className="min-w-0 rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm">
+    <article className="min-w-0 rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-base font-bold text-[#20242F]">{customer?.name ?? 'Unknown customer'}</h3>
           <p className="mt-1 text-sm text-[#4A5365]">{cupCount(order)} {cupCount(order) === 1 ? 'cup' : 'cups'} · {formatPhp(order.totalCentavos)}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${order.paymentReceived ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold transition-colors duration-200 ${order.paymentReceived ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
           {order.paymentReceived ? 'Receipt received' : 'Receipt pending'}
         </span>
       </div>
@@ -70,53 +70,53 @@ export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, 
           aria-pressed={order.paymentReceived}
           disabled={busy}
           onClick={() => void onPaymentReceived(order, !order.paymentReceived)}
-          className="rounded-xl border border-[#4F74C8]/35 px-3 py-2 text-sm font-semibold text-[#36579E] disabled:opacity-50"
+          className="rounded-xl border border-[#4F74C8]/35 px-3 py-2 text-sm font-semibold text-[#36579E] transition-colors duration-200 hover:bg-[#4F74C8]/10 active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50 disabled:active:scale-100"
         >
           {order.paymentReceived ? 'Mark receipt pending' : 'GCash screenshot received'}
         </button>
         {next && !paymentNeeded && canAdvance(order) && (
-          <button type="button" disabled={busy} onClick={() => void advance(false)} className="rounded-xl bg-[#4F74C8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => void advance(false)} className="rounded-xl bg-[#4F74C8] px-3 py-2 text-sm font-bold text-white shadow-sm transition duration-200 hover:bg-[#365AA9] active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50 disabled:active:scale-100">
             Mark {statusLabels[next]}
           </button>
         )}
         {next && paymentNeeded && !confirmingPayment && (
-          <button type="button" disabled={busy} onClick={() => setConfirmingPayment(true)} className="rounded-xl bg-[#4F74C8] px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => setConfirmingPayment(true)} className="rounded-xl bg-[#4F74C8] px-3 py-2 text-sm font-bold text-white shadow-sm transition duration-200 hover:bg-[#365AA9] active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50 disabled:active:scale-100">
             Confirm payment to advance
           </button>
         )}
         {canCancel(order.status) && (
-          <button type="button" disabled={busy} onClick={() => void onCancel(order)} className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 underline underline-offset-2 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => void onCancel(order)} className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 underline underline-offset-2 transition-colors duration-200 hover:bg-rose-50 disabled:opacity-50">
             Cancel order
           </button>
         )}
         {onEdit && (
-          <button type="button" disabled={busy} onClick={() => onEdit(order)} className="rounded-xl border border-[#4F74C8]/35 px-3 py-2 text-sm font-semibold text-[#36579E] disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => onEdit(order)} className="rounded-xl border border-[#4F74C8]/35 px-3 py-2 text-sm font-semibold text-[#36579E] transition-colors duration-200 hover:bg-[#4F74C8]/10 active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50 disabled:active:scale-100">
             Edit order
           </button>
         )}
         {onDelete && !confirmingDelete && (
-          <button type="button" disabled={busy} onClick={() => setConfirmingDelete(true)} className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 underline underline-offset-2 disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => setConfirmingDelete(true)} className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 underline underline-offset-2 transition-colors duration-200 hover:bg-rose-50 disabled:opacity-50">
             Delete order
           </button>
         )}
       </div>
 
       {confirmingPayment && (
-        <div role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
+        <div role="alert" className="motion-fade-up mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
           <p>Advance to paid without a GCash screenshot?</p>
           <div className="mt-2 flex gap-2">
-            <button type="button" disabled={busy} onClick={() => void advance(true)} className="rounded-lg bg-[#4F74C8] px-3 py-1.5 font-bold text-white disabled:opacity-50">Confirm advance to paid</button>
-            <button type="button" disabled={busy} onClick={() => setConfirmingPayment(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] disabled:opacity-50">Keep pending</button>
+            <button type="button" disabled={busy} onClick={() => void advance(true)} className="rounded-lg bg-[#4F74C8] px-3 py-1.5 font-bold text-white transition duration-200 hover:bg-[#365AA9] active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50">Confirm advance to paid</button>
+            <button type="button" disabled={busy} onClick={() => setConfirmingPayment(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] transition-colors duration-200 hover:bg-black/5 disabled:opacity-50">Keep pending</button>
           </div>
         </div>
       )}
 
       {confirmingDelete && (
-        <div role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-950">
+        <div role="alert" className="motion-fade-up mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-950">
           <p>Delete this order permanently? This cannot be undone.</p>
           <div className="mt-2 flex gap-2">
-            <button type="button" disabled={busy || deleting} onClick={() => void confirmDelete()} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-50">Confirm delete order</button>
-            <button type="button" disabled={busy || deleting} onClick={() => setConfirmingDelete(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] disabled:opacity-50">Keep order</button>
+            <button type="button" disabled={busy || deleting} onClick={() => void confirmDelete()} className="rounded-lg bg-rose-700 px-3 py-1.5 font-bold text-white transition duration-200 hover:bg-rose-800 active:scale-[0.97] motion-safe:transition-transform disabled:opacity-50">Confirm delete order</button>
+            <button type="button" disabled={busy || deleting} onClick={() => setConfirmingDelete(false)} className="rounded-lg px-3 py-1.5 font-semibold text-[#36579E] transition-colors duration-200 hover:bg-black/5 disabled:opacity-50">Keep order</button>
           </div>
         </div>
       )}
