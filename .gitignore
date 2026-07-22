@@ -24,3 +24,31 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# >>> repo-hygiene >>>
+# OS / editor cruft
+.DS_Store
+.fuse_hidden*
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+*.log
+
+# Secrets — never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local AI-agent scaffolding (keep on disk, keep off GitHub)
+CLAUDE.md
+master.md
+AGENTS.md
+.claude/
+.impeccable/
+# <<< repo-hygiene <<<
