@@ -4,6 +4,7 @@ import type { ProductSlug } from '../../domain/contracts'
 import type { StorageAdapter, StoredCustomer, StoredOrder, StoredOrderItem, StoredProduct } from '../../data/types'
 import type { ImportDraft } from './types'
 import { validateDraft } from './parser'
+import { withCupNames } from './cup-names'
 
 function id(): string { return crypto.randomUUID() }
 function now(): string { return new Date().toISOString() }
@@ -26,12 +27,14 @@ export async function confirmImportDraft(adapter: StorageAdapter, draft: ImportD
     thermalBags: draft.thermalBags.map((bag) => ({ coveredCupCount: bag.coveredCupCount! })),
   })
   const orderId = id()
-  const items: StoredOrderItem[] = priced.items.map((item) => {
+  // `priced.items` is index-aligned with `draft.items`, so cup names are zipped
+  // back on here: the pricing engine rebuilds modifiers and would drop them.
+  const items: StoredOrderItem[] = priced.items.map((item, index) => {
     const product: StoredProduct | undefined = productByName.get(getRuntimeCatalog()[item.productSlug].name)
     if (!product) throw new Error(`Storage is missing the catalog product ${item.productName}`)
     return {
       id: id(), orderId, productId: product.id, productName: item.productName, quantity: item.quantity,
-      modifiers: item.modifiers, unitPriceCentavos: item.unitPriceCentavos, lineTotalCentavos: item.lineTotalCentavos,
+      modifiers: withCupNames(item.modifiers, draft.items[index]?.cupNames), unitPriceCentavos: item.unitPriceCentavos, lineTotalCentavos: item.lineTotalCentavos,
       createdAt: timestamp, updatedAt: timestamp,
     }
   })

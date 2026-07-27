@@ -2,6 +2,7 @@ import { getRuntimeCatalog } from '../../domain/catalog'
 import type { StoredOrder } from '../../data/types'
 import type { ImportDraft } from '../import/types'
 import { blankItem } from './OrderEditorCard'
+import { normalizeCupNames } from '../import/cup-names'
 
 function id(): string { return crypto.randomUUID() }
 
@@ -55,6 +56,7 @@ export function storedOrderToImportDraft(order: StoredOrder, customerName: strin
       level: item.modifiers.level,
       powder: item.modifiers.powder,
       ...(item.modifiers.sweetness ? { sweetness: item.modifiers.sweetness } : {}),
+      ...(normalizeCupNames(item.modifiers.cupNames).length > 0 ? { cupNames: normalizeCupNames(item.modifiers.cupNames) } : {}),
     })),
     thermalBags: [],
     deliveryDate: order.deliveryDate,

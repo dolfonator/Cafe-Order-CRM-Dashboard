@@ -21,9 +21,17 @@ export type ModifierGroup = {
 
 export type StoredProduct = Product & { createdAt: string; updatedAt: string }
 export type StoredCustomer = Customer & { updatedAt: string }
+
+/**
+ * Persisted per-item modifiers. `cupNames` is a fulfillment label rather than a
+ * priced option, so it is kept out of the pricing engine's `DrinkModifiers` and
+ * stored alongside it in the same `modifiers` jsonb column — no schema change.
+ */
+export type StoredItemModifiers = DrinkModifiers & { cupNames?: string[] }
+
 export type StoredOrderItem = Omit<OrderItem, 'unitPriceCentavos' | 'lineTotalCentavos'> & {
   orderId: string
-  modifiers: DrinkModifiers
+  modifiers: StoredItemModifiers
   unitPriceCentavos: MoneyCentavos
   lineTotalCentavos: MoneyCentavos
   createdAt: string

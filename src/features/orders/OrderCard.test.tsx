@@ -40,3 +40,24 @@ describe('OrderCard edit and delete controls', () => {
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('OrderCard cup names', () => {
+  const order = demoOrders[0]
+  const withNames = {
+    ...order,
+    items: [{ ...order.items[0], quantity: 4, productName: 'Matcha Latte', modifiers: { ...order.items[0].modifiers, cupNames: ['Ana', 'Ben', 'Cara', 'Dave'] } }],
+  }
+
+  it('lists the name on each cup so the drinks can be labelled', () => {
+    render(<OrderCard order={withNames} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} />)
+    expect(screen.getByText('4× Matcha Latte')).toBeInTheDocument()
+    expect(screen.getByText('Ana, Ben, Cara, Dave')).toBeInTheDocument()
+  })
+
+  it('shows the drink line without a name suffix when no cups are named', () => {
+    const unnamed = { ...withNames, items: [{ ...withNames.items[0], modifiers: { level: 1 as const, powder: 'yumeno' as const } }] }
+    render(<OrderCard order={unnamed} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} />)
+    expect(screen.getByText('4× Matcha Latte')).toBeInTheDocument()
+    expect(screen.queryByText(/Ana/)).not.toBeInTheDocument()
+  })
+})

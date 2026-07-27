@@ -5,6 +5,7 @@ import type { StoredCustomer, StoredOrder } from '../../data/types'
 import { applyCustomerMatch } from '../import/customer-matching'
 import { formatPhp, validateDraft } from '../import/parser'
 import type { ImportDraft, ImportItem, ImportThermalBag } from '../import/types'
+import { MAX_CUP_NAME_LENGTH, padCupNames } from '../import/cup-names'
 
 export function blankItem(): ImportItem { return { id: crypto.randomUUID(), productSlug: 'matcha-latte', quantity: 1, level: 1, powder: 'yumeno' } }
 export function blankBag(): ImportThermalBag { return { id: crypto.randomUUID(), coveredCupCount: 1 } }
@@ -23,6 +24,16 @@ export function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>
 
 export function updateItem(draft: ImportDraft, itemId: string, patch: Partial<ImportItem>): ImportDraft {
   return { ...draft, items: draft.items.map((item) => item.id === itemId ? { ...item, ...patch } : item) }
+}
+
+/**
+ * Sets one cup's name. Trailing blanks are trimmed so an untouched item never
+ * carries an empty `cupNames` array into storage.
+ */
+export function setCupName(item: ImportItem, cupIndex: number, value: string): Partial<ImportItem> {
+  const names = padCupNames(item.cupNames, item.quantity).map((name, index) => index === cupIndex ? value.slice(0, MAX_CUP_NAME_LENGTH) : name)
+  while (names.length > 0 && names[names.length - 1].trim() === '') names.pop()
+  return { cupNames: names.map((name) => name.trim()) }
 }
 
 export function OrderEditorCard({ draft, customers, orders, confirming, onChange, onConfirm }: {
@@ -61,6 +72,15 @@ export function OrderEditorCard({ draft, customers, orders, confirming, onChange
             <FieldLabel>Powder<SelectInput aria-label={`Powder ${index + 1}`} value={item.powder ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { powder: event.target.value === 'mk_isuzu' ? 'mk_isuzu' : event.target.value === 'yumeno' ? 'yumeno' : null }))}><option value="">Unresolved</option><option value="yumeno">Yumeno</option><option value="mk_isuzu">MK Isuzu</option></SelectInput></FieldLabel>
           </div>
           {(item.productSlug === 'matcha-latte' || item.productSlug === 'hojicha-latte' || item.sweetness) && <FieldLabel><span className="mt-2 block">Sweetness</span><SelectInput aria-label={`Sweetness ${index + 1}`} value={item.sweetness ?? ''} onChange={(event) => onChange(updateItem(draft, item.id, { sweetness: event.target.value ? event.target.value as 'none' | 'light' | 'regular' | 'extra' : undefined }))}><option value="">Not requested</option><option value="none">None</option><option value="light">Light</option><option value="regular">Regular</option><option value="extra">Extra</option></SelectInput></FieldLabel>}
+          {padCupNames(item.cupNames, item.quantity).length > 0 && <div className="mt-3 border-t border-[#4F74C8]/10 pt-3">
+            <span className="block text-xs font-bold uppercase tracking-[0.12em] text-[#4A5365]">Name on each cup <span className="font-semibold normal-case tracking-normal text-[#697386]">· optional</span></span>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {padCupNames(item.cupNames, item.quantity).map((name, cupIndex) => <label key={cupIndex} className="block">
+                <span className="block text-[11px] font-semibold text-[#697386]">Cup {cupIndex + 1}</span>
+                <TextInput aria-label={`Drink ${index + 1} cup ${cupIndex + 1} name`} maxLength={MAX_CUP_NAME_LENGTH} placeholder="Unnamed" value={name} onChange={(event) => onChange(updateItem(draft, item.id, setCupName(item, cupIndex, event.target.value)))} />
+              </label>)}
+            </div>
+          </div>}
         </div>)}
       </div>
       <div className="mt-5"><div className="flex items-center justify-between"><h3 className="font-semibold">Thermal bags</h3><button type="button" className="rounded-lg px-2 py-1 text-sm font-semibold text-[#365aa8] transition-colors duration-200 hover:bg-[#4F74C8]/10" onClick={() => onChange({ ...draft, thermalBags: [...draft.thermalBags, blankBag()] })}><Plus className="mr-1 inline" size={15} />Add bag</button></div>{draft.thermalBags.map((bag, index) => <div className="motion-fade-up mt-2 flex items-end gap-2" key={bag.id}><FieldLabel>Bag {index + 1} covers<SelectInput aria-label={`Thermal bag ${index + 1}`} value={bag.coveredCupCount ?? ''} onChange={(event) => onChange({ ...draft, thermalBags: draft.thermalBags.map((entry) => entry.id === bag.id ? { ...entry, coveredCupCount: event.target.value ? Number(event.target.value) : null } : entry) })}><option value="">Unresolved</option><option value="1">1 cup</option><option value="2">2 cups</option><option value="3">3 cups</option><option value="4">4 cups</option></SelectInput></FieldLabel><button type="button" aria-label={`Remove thermal bag ${index + 1}`} className="min-h-11 rounded-xl px-2 text-[#4A5365] transition-colors duration-200 hover:bg-rose-50 hover:text-rose-700" onClick={() => onChange({ ...draft, thermalBags: draft.thermalBags.filter((entry) => entry.id !== bag.id) })}><Trash2 size={16} /></button></div>)}</div>

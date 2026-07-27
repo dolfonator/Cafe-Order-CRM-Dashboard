@@ -5,6 +5,7 @@ import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/typ
 import { OrderEditorModal } from '../order-editor/OrderEditorModal'
 import { storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
 import { relevantDeliveryDate } from '../today/TodayBoard'
+import { formatCupNames } from '../import/cup-names'
 import { loadCustomerProfile, saveCustomerProfile, type CustomerProfile } from './customer-profile'
 import { getCustomerSummaries, type CustomerSummary } from './customer-stats'
 import { deleteCustomerCascade } from './deleteCustomerCascade'
@@ -223,7 +224,7 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
                   <p className="shrink-0 font-black text-[#4F74C8]">{formatCurrency(order.totalCentavos)}</p>
                 </div>
                 <ul className="mt-3 space-y-1 text-sm text-[#4A5365]">
-                  {order.items.map((item) => <li key={item.id}>{item.quantity}× {item.productName}</li>)}
+                  {order.items.map((item) => <li key={item.id}>{item.quantity}× {item.productName}{formatCupNames(item.modifiers.cupNames) && <span className="text-[#36579E]"> · {formatCupNames(item.modifiers.cupNames)}</span>}</li>)}
                 </ul>
               </article>
             ))}

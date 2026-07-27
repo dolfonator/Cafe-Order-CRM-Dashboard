@@ -2,6 +2,7 @@ import { priceOrder } from '../../domain/pricing'
 import type { OrderDraft, ProductSlug } from '../../domain/contracts'
 import { PricingError } from '../../domain/pricing-error'
 import { defaultLevel, normalizeLevel, normalizePowder, normalizeProductSlug, normalizeSweetness } from './catalog'
+import { normalizeCupNames } from './cup-names'
 import type { DraftValidation, ImportDraft, ImportItem, ImportThermalBag, StructuralItem, StructuralOrder } from './types'
 
 function id(): string { return crypto.randomUUID() }
@@ -37,7 +38,8 @@ function normalizeItem(item: StructuralItem, index: number, unresolved: string[]
   if (!powder) unresolved.push(`Item ${index + 1}: unknown powder \"${String(item.powder ?? '')}\"`)
   const sweetness = normalizeSweetness(item.sweetness)
   if (sweetness === null) unresolved.push(`Item ${index + 1}: unknown sweetness \"${String(item.sweetness ?? '')}\"`)
-  return { id: id(), productSlug, quantity, level, powder, ...(sweetness === undefined ? {} : { sweetness }) }
+  const cupNames = normalizeCupNames(item.cup_names)
+  return { id: id(), productSlug, quantity, level, powder, ...(sweetness === undefined ? {} : { sweetness }), ...(cupNames.length > 0 ? { cupNames } : {}) }
 }
 
 export function normalizeCandidate(candidate: StructuralOrder, rawSource: string): ImportDraft {
@@ -77,7 +79,9 @@ function candidatesFromParsed(value: unknown): StructuralOrder[] {
 function structuralDraftKey(draft: ImportDraft): string {
   return JSON.stringify({
     customerName: draft.customerName,
-    items: draft.items.map(({ productSlug, quantity, level, powder, sweetness }) => ({ productSlug, quantity, level, powder, sweetness })),
+    // cupNames participate in the key: two otherwise-identical orders naming
+    // different people are genuinely different orders, not a duplicate paste.
+    items: draft.items.map(({ productSlug, quantity, level, powder, sweetness, cupNames }) => ({ productSlug, quantity, level, powder, sweetness, cupNames })),
     thermalBags: draft.thermalBags.map(({ coveredCupCount }) => ({ coveredCupCount })),
     deliveryDate: draft.deliveryDate,
     address: draft.address,
@@ -139,6 +143,12 @@ export function validateDraft(draft: ImportDraft): DraftValidation {
   const errors = [...draft.unresolvedFields]
   const warnings: string[] = []
   if (!draft.customerName) errors.push('Customer name is required')
+  draft.items.forEach((item, index) => {
+    const names = normalizeCupNames(item.cupNames)
+    if (item.quantity !== null && names.length > item.quantity) {
+      errors.push(`Item ${index + 1}: ${names.length} cup names for only ${item.quantity} ${item.quantity === 1 ? 'cup' : 'cups'}`)
+    }
+  })
   if (!draft.address) warnings.push('Delivery address is missing — review before confirming')
   const orderDraft = asPricedOrderDraft(draft)
   if (!orderDraft) return { errors, warnings, totalCentavos: null, itemTotalsCentavos: new Map() }

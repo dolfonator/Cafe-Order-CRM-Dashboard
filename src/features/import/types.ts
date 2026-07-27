@@ -7,6 +7,8 @@ export type ImportItem = {
   level: DrinkLevel | null
   powder: Powder | null
   sweetness?: Sweetness | null
+  /** Optional per-cup names, at most one per cup in `quantity`. */
+  cupNames?: string[]
 }
 
 export type ImportThermalBag = {
@@ -35,6 +37,7 @@ export type StructuralItem = {
   level?: unknown
   powder?: unknown
   sweetness?: unknown
+  cup_names?: unknown
 }
 
 export type StructuralOrder = {

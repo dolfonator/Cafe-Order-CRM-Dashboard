@@ -3,6 +3,7 @@ import { priceOrder } from '../../domain/pricing'
 import type { ProductSlug } from '../../domain/contracts'
 import type { StorageAdapter, StoredOrder, StoredOrderItem, StoredProduct } from '../../data/types'
 import { validateDraft } from '../import/parser'
+import { withCupNames } from '../import/cup-names'
 import type { ImportDraft } from '../import/types'
 
 function id(): string { return crypto.randomUUID() }
@@ -46,12 +47,12 @@ export async function saveOrderEdit(adapter: StorageAdapter, order: StoredOrder,
   })
 
   const timestamp = now()
-  const newItems: StoredOrderItem[] = priced.items.map((item) => {
+  const newItems: StoredOrderItem[] = priced.items.map((item, index) => {
     const product: StoredProduct | undefined = productByName.get(getRuntimeCatalog()[item.productSlug].name)
     if (!product) throw new Error(`Storage is missing the catalog product ${item.productName}`)
     return {
       id: id(), orderId: order.id, productId: product.id, productName: item.productName, quantity: item.quantity,
-      modifiers: item.modifiers, unitPriceCentavos: item.unitPriceCentavos, lineTotalCentavos: item.lineTotalCentavos,
+      modifiers: withCupNames(item.modifiers, draft.items[index]?.cupNames), unitPriceCentavos: item.unitPriceCentavos, lineTotalCentavos: item.lineTotalCentavos,
       createdAt: timestamp, updatedAt: timestamp,
     }
   })

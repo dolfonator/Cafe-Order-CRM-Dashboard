@@ -9,9 +9,10 @@
 export type CoreResult = { status: number; body: object }
 
 export const extractionInstruction = `Extract order structure from the supplied Viber conversation. Return JSON only in this shape:
-{"orders":[{"customer_name":null,"items":[{"product_slug":null,"quantity":null,"level":null,"powder":null,"sweetness":null}],"thermal_bags":[{"covered_cup_count":null}],"delivery_date":null,"address":null,"notes":null,"source_confidence":null,"unresolved_fields":[]}]}
+{"orders":[{"customer_name":null,"items":[{"product_slug":null,"quantity":null,"level":null,"powder":null,"sweetness":null,"cup_names":[]}],"thermal_bags":[{"covered_cup_count":null}],"delivery_date":null,"address":null,"notes":null,"source_confidence":null,"unresolved_fields":[]}]}
 Canonical product slugs: matcha-latte, strawberry-matcha, salted-maple-matcha, hojicha-latte, strawberry-hojicha, salted-maple-hojicha.
 All drinks use oat milk. Matcha levels are L1, L2, L3. Hojicha levels are L1, L2, L3. Powders are yumeno and mk_isuzu. Sweetness none, light, regular, or extra is permitted only for plain matcha-latte and plain hojicha-latte. Thermal bags cover 1, 2, 3, or 4 cups.
+cup_names holds a name per cup when one customer orders for several people ("one for Ana, one for Ben"): at most one name per cup in quantity, in the order mentioned, [] when none are given. Never invent names.
 Keep uncertain values null and explain them in unresolved_fields. Ignore monetary claims. Do not add any keys beyond the requested structure.`
 
 /** Reads the key without assuming a Node global, so this works on serverless and edge runtimes alike. */

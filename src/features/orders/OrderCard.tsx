@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { StoredCustomer, StoredOrder } from '../../data/types'
 import { canAdvance, canCancel, nextAction, nextStatus, requiresPaymentConfirmation, statusLabels } from './orderLifecycle'
+import { formatCupNames } from '../import/cup-names'
 
 type OrderCardProps = {
   order: StoredOrder
@@ -57,6 +58,18 @@ export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, 
           {order.paymentReceived ? 'Receipt received' : 'Receipt pending'}
         </span>
       </div>
+
+      <ul className="mt-3 space-y-1">
+        {order.items.map((item) => {
+          const names = formatCupNames(item.modifiers.cupNames)
+          return (
+            <li key={item.id} className="break-words text-sm text-[#4A5365]">
+              <span className="font-semibold text-[#20242F]">{item.quantity}× {item.productName}</span>
+              {names && <> · <span className="font-semibold text-[#36579E]">{names}</span></>}
+            </li>
+          )
+        })}
+      </ul>
 
       <p className="mt-3 break-words text-sm text-[#4A5365]">
         <span className="font-semibold text-[#20242F]">Address:</span> {order.addressSnapshot || 'Address not provided'}
