@@ -4,6 +4,7 @@ import type { ProductSlug } from '../../domain/contracts'
 import type { StorageAdapter, StoredOrder, StoredOrderItem, StoredProduct } from '../../data/types'
 import { validateDraft } from '../import/parser'
 import { withCupNames } from '../import/cup-names'
+import { ensureCatalogProducts } from '../../data/ensure-catalog-products'
 import type { ImportDraft } from '../import/types'
 
 function id(): string { return crypto.randomUUID() }
@@ -34,8 +35,7 @@ export async function saveOrderEdit(adapter: StorageAdapter, order: StoredOrder,
     throw new Error(`Cannot save an invalid draft: ${validation.errors.join('; ')}`)
   }
 
-  const products = await adapter.listProducts()
-  const productByName = new Map(products.map((product) => [product.name, product]))
+  const productByName = await ensureCatalogProducts(adapter)
 
   const priced = priceOrder({
     items: draft.items.map((item) => ({

@@ -5,6 +5,7 @@ import type { StorageAdapter, StoredCustomer, StoredOrder, StoredOrderItem, Stor
 import type { ImportDraft } from './types'
 import { validateDraft } from './parser'
 import { withCupNames } from './cup-names'
+import { ensureCatalogProducts } from '../../data/ensure-catalog-products'
 
 function id(): string { return crypto.randomUUID() }
 function now(): string { return new Date().toISOString() }
@@ -14,13 +15,12 @@ export async function confirmImportDraft(adapter: StorageAdapter, draft: ImportD
   if (validation.errors.length > 0 || validation.totalCentavos === null || !draft.customerName) {
     throw new Error(`Cannot confirm an invalid draft: ${validation.errors.join('; ')}`)
   }
-  const [customers, products] = await Promise.all([adapter.listCustomers(), adapter.listProducts()])
+  const [customers, productByName] = await Promise.all([adapter.listCustomers(), ensureCatalogProducts(adapter)])
   const matched = draft.matchedCustomerId ? customers.find((customer) => customer.id === draft.matchedCustomerId) : undefined
   const timestamp = now()
   const customer: StoredCustomer = matched
     ? (matched.name === draft.customerName ? matched : await adapter.updateCustomer(matched.id, { name: draft.customerName }))
     : await adapter.createCustomer({ id: id(), name: draft.customerName, phone: null, createdAt: timestamp, updatedAt: timestamp })
-  const productByName = new Map(products.map((product) => [product.name, product]))
   const priced = priceOrder({
     customer: { name: draft.customerName },
     items: draft.items.map((item) => ({ productSlug: item.productSlug! as ProductSlug, quantity: item.quantity!, modifiers: { level: item.level!, powder: item.powder!, ...(item.sweetness ? { sweetness: item.sweetness } : {}) } })),
