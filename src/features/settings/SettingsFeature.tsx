@@ -54,7 +54,7 @@ export function SettingsFeature({ adapter }: { adapter: StorageAdapter }) {
   const save = async () => {
     setSaving(true); setError(null); setMessage(null)
     try { setSettings(await saveDashboardSettings(adapter, settings)); setMessage('Saved. Import pricing and the @ChatGPT prompt now use these menu settings.') }
-    catch { setError('Settings could not be saved. Your changes are still on this screen.') }
+    catch (cause) { setError(`Settings could not be saved. Your changes are still on this screen. (${cause instanceof Error ? cause.message : String(cause)})`) }
     finally { setSaving(false) }
   }
   const updateOpenDay = (day: OpenDay, checked: boolean) => update({ openDays: checked ? [...settings.openDays, day] : settings.openDays.filter((entry) => entry !== day) })

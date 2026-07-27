@@ -122,7 +122,7 @@ export async function saveDashboardSettings(adapter: StorageAdapter, settings: D
   const clean = parseDashboardSettings(settings)
   const now = new Date().toISOString()
   await adapter.setSetting({
-    id: `settings-${Date.now()}`,
+    id: crypto.randomUUID(),
     key: ORDER_DASHBOARD_SETTINGS_KEY,
     value: clean as unknown as JsonValue,
     createdAt: now,
