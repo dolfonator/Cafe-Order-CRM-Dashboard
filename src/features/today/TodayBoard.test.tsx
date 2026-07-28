@@ -37,7 +37,7 @@ describe('TodayBoard', () => {
     expect(screen.queryByRole('heading', { name: 'Mika Santos' })).not.toBeInTheDocument()
   })
 
-  it('persists a complete lifecycle, with payment receipt tracked separately', async () => {
+  it('persists New → Paid → Delivered and records payment automatically', async () => {
     const adapter = await createAdapter()
     await adapter.updateOrder(demoOrders[1].id, { status: 'new', paymentReceived: false })
     const user = userEvent.setup()
@@ -45,29 +45,19 @@ describe('TodayBoard', () => {
 
     const card = await screen.findByRole('heading', { name: 'Paolo Reyes' })
     expect(card).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Mark Confirmed' }))
-    await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.status).toBe('confirmed'))
-
-    expect(screen.getByRole('button', { name: 'Confirm payment to advance' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'GCash screenshot received' }))
-    await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.paymentReceived).toBe(true))
-    await user.click(await screen.findByRole('button', { name: 'Mark Paid' }))
-    await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.status).toBe('paid'))
-    await user.click(await screen.findByRole('button', { name: 'Mark Making' }))
-    await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.status).toBe('making'))
+    await user.click(screen.getByRole('button', { name: 'Mark Paid' }))
+    await waitFor(async () => expect(await adapter.getOrder(demoOrders[1].id)).toMatchObject({ status: 'paid', paymentReceived: true }))
     const paoloCard = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
-    await user.click(within(paoloCard).getByRole('button', { name: 'Mark Out for delivery' }))
-    await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.status).toBe('out_for_delivery'))
-    await user.click(within((await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!).getByRole('button', { name: 'Mark Delivered' }))
+    await user.click(within(paoloCard).getByRole('button', { name: 'Mark Delivered' }))
     await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.status).toBe('delivered'))
     expect(within((await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!).queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
   })
 
   it('blocks invalid lifecycle transitions and makes cancellation terminal', () => {
     expect(nextStatus('delivered')).toBeNull()
-    expect(canAdvance({ ...demoOrders[1], status: 'confirmed', paymentReceived: false })).toBe(false)
-    expect(canAdvance({ ...demoOrders[1], status: 'confirmed', paymentReceived: true })).toBe(true)
-    for (const status of ['new', 'confirmed', 'paid', 'making', 'out_for_delivery'] as const) expect(canCancel(status)).toBe(true)
+    expect(canAdvance({ ...demoOrders[1], status: 'new', paymentReceived: false })).toBe(true)
+    expect(canAdvance({ ...demoOrders[1], status: 'paid', paymentReceived: true })).toBe(true)
+    for (const status of ['new', 'paid'] as const) expect(canCancel(status)).toBe(true)
     expect(canCancel('delivered')).toBe(false)
     expect(canCancel('cancelled')).toBe(false)
     expect(nextStatus('cancelled')).toBeNull()
@@ -75,12 +65,13 @@ describe('TodayBoard', () => {
 
   it('cancels a non-delivered order and persists the terminal state', async () => {
     const adapter = await createAdapter()
+    await adapter.updateOrder(demoOrders[1].id, { status: 'paid', paymentReceived: true })
     const user = userEvent.setup()
     render(<TodayBoard adapter={adapter} initialDeliveryDate={deliveryDate} />)
 
     const paoloCard = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
     await user.click(within(paoloCard).getByRole('button', { name: 'Cancel order' }))
-    await waitFor(async () => expect((await adapter.getOrder(demoOrders[1].id))?.status).toBe('cancelled'))
+    await waitFor(async () => expect(await adapter.getOrder(demoOrders[1].id)).toMatchObject({ status: 'cancelled', paymentReceived: true }))
     expect(within(await screen.findByRole('heading', { name: 'Paolo Reyes' }).then((heading) => heading.closest('article')!)).queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument()
   })
 
@@ -98,14 +89,14 @@ describe('TodayBoard', () => {
     })
   })
 
-  it('refreshes when another LocalAdapter session mutates an order', async () => {
+  it('refreshes when another LocalAdapter session advances an order', async () => {
     const first = await createAdapter()
     const second = await createAdapter()
     render(<TodayBoard adapter={first} initialDeliveryDate={deliveryDate} />)
-    expect(await screen.findByText('Receipt pending')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Mark Paid' })).toBeInTheDocument()
 
-    await second.updateOrder(demoOrders[1].id, { paymentReceived: true })
-    await waitFor(() => expect(screen.getByText('Receipt received')).toBeInTheDocument())
+    await second.updateOrder(demoOrders[1].id, { status: 'paid', paymentReceived: true })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Mark Delivered' })).toBeInTheDocument())
   })
 
   it('creates a manual new order through the shared editor, persisted with engine-priced totals', async () => {

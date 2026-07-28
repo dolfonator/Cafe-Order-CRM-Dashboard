@@ -5,10 +5,7 @@ export type MoneyCentavos = number
 
 export type OrderStatus =
   | 'new'
-  | 'confirmed'
   | 'paid'
-  | 'making'
-  | 'out_for_delivery'
   | 'delivered'
   | 'cancelled'
 

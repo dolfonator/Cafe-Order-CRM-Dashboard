@@ -2,10 +2,7 @@ create extension if not exists pgcrypto;
 
 create type public.order_status as enum (
   'new',
-  'confirmed',
   'paid',
-  'making',
-  'out_for_delivery',
   'delivered',
   'cancelled'
 );
@@ -43,6 +40,11 @@ create table public.orders (
   status public.order_status not null default 'new',
   delivery_date date,
   payment_received boolean not null default false,
+  constraint orders_status_payment_consistent check (
+    (status = 'new' and not payment_received)
+    or (status in ('paid', 'delivered') and payment_received)
+    or status = 'cancelled'
+  ),
   subtotal_centavos integer not null check (subtotal_centavos >= 0),
   delivery_fee_centavos integer not null default 0 check (delivery_fee_centavos >= 0),
   total_centavos integer not null check (total_centavos >= 0),

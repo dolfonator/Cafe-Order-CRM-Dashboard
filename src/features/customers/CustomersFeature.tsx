@@ -220,7 +220,7 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
             {customerOrders.map((order) => (
               <article key={order.id} className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="font-bold">{formatDate(order)}</p><p className="mt-1 text-sm capitalize text-[#4A5365]">{statusLabel(order.status)} · {order.paymentReceived ? 'Paid' : 'Unpaid'}</p></div>
+                  <div className="min-w-0"><p className="font-bold">{formatDate(order)}</p><p className="mt-1 text-sm capitalize text-[#4A5365]">{statusLabel(order.status)}</p></div>
                   <p className="shrink-0 font-black text-[#4F74C8]">{formatCurrency(order.totalCentavos)}</p>
                 </div>
                 <ul className="mt-3 space-y-1 text-sm text-[#4A5365]">

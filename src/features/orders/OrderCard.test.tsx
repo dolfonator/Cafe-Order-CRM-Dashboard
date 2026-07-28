@@ -8,7 +8,7 @@ const noop = async () => {}
 
 describe('OrderCard edit and delete controls', () => {
   it('omits Edit order and Delete order buttons when the callbacks are not provided (back-compat with existing callers)', () => {
-    render(<OrderCard order={demoOrders[0]} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} />)
+    render(<OrderCard order={demoOrders[0]} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} />)
     expect(screen.queryByRole('button', { name: 'Edit order' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delete order' })).not.toBeInTheDocument()
   })
@@ -16,7 +16,7 @@ describe('OrderCard edit and delete controls', () => {
   it('calls onEdit with the order when Edit order is clicked', async () => {
     const onEdit = vi.fn()
     const user = userEvent.setup()
-    render(<OrderCard order={demoOrders[0]} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} onEdit={onEdit} />)
+    render(<OrderCard order={demoOrders[0]} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onEdit={onEdit} />)
     await user.click(screen.getByRole('button', { name: 'Edit order' }))
     expect(onEdit).toHaveBeenCalledWith(demoOrders[0])
   })
@@ -24,7 +24,7 @@ describe('OrderCard edit and delete controls', () => {
   it('requires a single confirmation before calling onDelete, and can be backed out of', async () => {
     const onDelete = vi.fn(async () => {})
     const user = userEvent.setup()
-    render(<OrderCard order={demoOrders[0]} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} onDelete={onDelete} />)
+    render(<OrderCard order={demoOrders[0]} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onDelete={onDelete} />)
 
     await user.click(screen.getByRole('button', { name: 'Delete order' }))
     expect(onDelete).not.toHaveBeenCalled()
@@ -49,15 +49,28 @@ describe('OrderCard cup names', () => {
   }
 
   it('lists the name on each cup so the drinks can be labelled', () => {
-    render(<OrderCard order={withNames} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} />)
+    render(<OrderCard order={withNames} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} />)
     expect(screen.getByText('4× Matcha Latte')).toBeInTheDocument()
     expect(screen.getByText('Ana, Ben, Cara, Dave')).toBeInTheDocument()
   })
 
   it('shows the drink line without a name suffix when no cups are named', () => {
     const unnamed = { ...withNames, items: [{ ...withNames.items[0], modifiers: { level: 1 as const, powder: 'yumeno' as const } }] }
-    render(<OrderCard order={unnamed} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} onPaymentReceived={noop} />)
+    render(<OrderCard order={unnamed} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} />)
     expect(screen.getByText('4× Matcha Latte')).toBeInTheDocument()
     expect(screen.queryByText(/Ana/)).not.toBeInTheDocument()
+  })
+})
+
+describe('OrderCard lifecycle controls', () => {
+  it('advances a new order directly to Paid without separate receipt controls', async () => {
+    const onAdvance = vi.fn(async () => {})
+    const user = userEvent.setup()
+    render(<OrderCard order={demoOrders[1]} customer={demoCustomers[1]} onAdvance={onAdvance} onCancel={noop} />)
+
+    expect(screen.queryByText('Receipt pending')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'GCash screenshot received' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Mark Paid' }))
+    expect(onAdvance).toHaveBeenCalledWith(demoOrders[1])
   })
 })

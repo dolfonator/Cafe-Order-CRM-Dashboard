@@ -49,11 +49,11 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
     }
   }
 
-  const advance = async (order: StoredOrder, paymentConfirmed: boolean) => {
-    if (!canAdvance(order, paymentConfirmed)) return
+  const advance = async (order: StoredOrder) => {
+    if (!canAdvance(order)) return
     const next = nextStatus(order.status)
     if (!next) return
-    await update(order, { status: next })
+    await update(order, { status: next, ...(next === 'paid' ? { paymentReceived: true } : {}) })
   }
 
   const cancel = async (order: StoredOrder) => {
@@ -119,7 +119,7 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
           {visibleOrders.map((order) => (
             <div key={order.id}>
               <p className="mb-1 px-1 text-xs font-bold uppercase tracking-[0.1em] text-[#697386]">{order.deliveryDate ?? 'No delivery date'} · {statusLabels[order.status]}</p>
-              <OrderCard order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />
+              <OrderCard order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />
             </div>
           ))}
           {visibleOrders.length === 0 && <p className="rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 p-4 text-sm text-[#4A5365]">No orders match these filters.</p>}

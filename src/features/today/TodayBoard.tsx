@@ -65,11 +65,11 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
     }
   }
 
-  const advance = async (order: StoredOrder, paymentConfirmed: boolean) => {
-    if (!adapter || !canAdvance(order, paymentConfirmed)) return
+  const advance = async (order: StoredOrder) => {
+    if (!adapter || !canAdvance(order)) return
     const next = nextStatus(order.status)
     if (!next) return
-    await update(order, { status: next })
+    await update(order, { status: next, ...(next === 'paid' ? { paymentReceived: true } : {}) })
   }
 
   const cancel = async (order: StoredOrder) => {
@@ -150,7 +150,7 @@ export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: To
                 </div>
                 {statusOrders.length > 0 ? (
                   <div className="space-y-3">
-                    {statusOrders.map((order) => <OrderCard key={order.id} order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onPaymentReceived={(current, paymentReceived) => update(current, { paymentReceived })} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />)}
+                    {statusOrders.map((order) => <OrderCard key={order.id} order={order} customer={customerFor(customers, order)} busy={busyOrderId === order.id} onAdvance={advance} onCancel={cancel} onEdit={(current) => setEditorState({ mode: 'edit', order: current })} onDelete={deleteOrder} />)}
                   </div>
                 ) : <p className="rounded-xl border border-dashed border-[#4F74C8]/25 bg-white/40 px-3 py-2.5 text-sm text-[#697386]">No orders</p>}
               </section>

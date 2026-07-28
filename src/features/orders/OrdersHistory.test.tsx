@@ -28,7 +28,7 @@ describe('OrdersHistory', () => {
     expect(screen.queryByRole('heading', { name: 'Mika Santos' })).not.toBeInTheDocument()
 
     await user.clear(screen.getByLabelText('Search orders'))
-    await user.selectOptions(screen.getByLabelText('Status filter'), 'making')
+    await user.selectOptions(screen.getByLabelText('Status filter'), 'paid')
     expect(await screen.findByRole('heading', { name: 'Mika Santos' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Paolo Reyes' })).not.toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Status filter'), 'all')
