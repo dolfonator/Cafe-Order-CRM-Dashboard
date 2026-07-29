@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { StoredCustomer, StoredOrder } from '../../data/types'
-import { canAdvance, canCancel, nextAction, nextStatus, statusLabels } from './orderLifecycle'
 import { formatCupNames } from '../import/cup-names'
+import { cupCount, formatPhp } from './order-display'
+import { canAdvance, canCancel, nextAction, nextStatus, statusLabels } from './orderLifecycle'
+import { lifecycleTimestampLines } from './order-timestamps'
 
 type OrderCardProps = {
   order: StoredOrder
@@ -13,14 +15,6 @@ type OrderCardProps = {
   onEdit?: (order: StoredOrder) => void
   /** Hard-deletes the order (distinct from "Cancel order", which only sets status to cancelled). Renders a "Delete order" button, gated by an inline confirmation, when provided. */
   onDelete?: (order: StoredOrder) => Promise<void>
-}
-
-export function formatPhp(centavos: number): string {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(centavos / 100)
-}
-
-export function cupCount(order: StoredOrder): number {
-  return order.items.reduce((total, item) => total + item.quantity, 0)
 }
 
 export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, onEdit, onDelete }: OrderCardProps) {
@@ -65,6 +59,9 @@ export function OrderCard({ order, customer, busy = false, onAdvance, onCancel, 
       </p>
       {customer?.phone && <p className="mt-1 text-sm text-[#4A5365]">{customer.phone}</p>}
       <p className="mt-3 text-sm font-semibold text-[#4F74C8]">Next: {nextAction(order)}</p>
+      {lifecycleTimestampLines(order).map((line) => (
+        <p key={line} className="mt-1 text-sm text-[#4A5365]">{line}</p>
+      ))}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {next && canAdvance(order) && (

@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
-import { relevantDeliveryDate } from '../today/TodayBoard'
+import { relevantDeliveryDate } from '../today/delivery-dates'
 import { OrderEditorModal } from '../order-editor/OrderEditorModal'
 import { blankImportDraft, storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
 import { OrderCard } from './OrderCard'

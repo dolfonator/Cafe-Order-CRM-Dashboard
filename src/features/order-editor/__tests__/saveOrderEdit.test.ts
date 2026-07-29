@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LocalAdapter, resetLocalAdapterMemoryForTests } from '../../../data/local-adapter'
 import { demoOrders } from '../../../demo/seed'
-import { blankItem } from '../OrderEditorCard'
+import { blankItem } from '../order-draft-helpers'
 import { storedOrderToImportDraft } from '../orderDraftMapping'
 import { saveOrderEdit } from '../saveOrderEdit'
 

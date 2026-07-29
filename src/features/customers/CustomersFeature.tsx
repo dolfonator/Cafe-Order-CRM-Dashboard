@@ -4,8 +4,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
 import { OrderEditorModal } from '../order-editor/OrderEditorModal'
 import { storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
-import { relevantDeliveryDate } from '../today/TodayBoard'
+import { relevantDeliveryDate } from '../today/delivery-dates'
 import { formatCupNames } from '../import/cup-names'
+import { lifecycleTimestampLines } from '../orders/order-timestamps'
 import { loadCustomerProfile, saveCustomerProfile, type CustomerProfile } from './customer-profile'
 import { getCustomerSummaries, type CustomerSummary } from './customer-stats'
 import { deleteCustomerCascade } from './deleteCustomerCascade'
@@ -226,6 +227,9 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
                 <ul className="mt-3 space-y-1 text-sm text-[#4A5365]">
                   {order.items.map((item) => <li key={item.id}>{item.quantity}× {item.productName}{formatCupNames(item.modifiers.cupNames) && <span className="text-[#36579E]"> · {formatCupNames(item.modifiers.cupNames)}</span>}</li>)}
                 </ul>
+                {lifecycleTimestampLines(order).map((line) => (
+                  <p key={line} className="mt-1 text-sm text-[#4A5365]">{line}</p>
+                ))}
               </article>
             ))}
             {customerOrders.length === 0 && <p className="rounded-2xl border border-dashed border-[#4F74C8]/35 p-4 text-sm text-[#4A5365]">No order history yet.</p>}

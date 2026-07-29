@@ -2,6 +2,33 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
+
+// Presence check only — read the variable name to decide whether to enable the
+// plugin. Never log, never write, never embed SENTRY_AUTH_TOKEN in client code.
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
+const sentryEnabled = typeof sentryAuthToken === 'string' && sentryAuthToken.trim() !== ''
+
+function manualChunks(id: string): string | undefined {
+  if (!id.includes('node_modules')) return undefined
+
+  // React ecosystem — keep router with the framework runtime.
+  if (
+    id.includes('node_modules/react-dom') ||
+    id.includes('node_modules/react-router') ||
+    id.includes('node_modules/scheduler') ||
+    /node_modules\/react\//.test(id)
+  ) {
+    return 'framework'
+  }
+
+  // Supabase client and its scoped packages.
+  if (id.includes('node_modules/@supabase/')) {
+    return 'supabase'
+  }
+
+  return undefined
+}
 
 export default defineConfig({
   plugins: [
@@ -29,7 +56,31 @@ export default defineConfig({
         ],
       },
     }),
+    // Only register when SENTRY_AUTH_TOKEN is present (Netlify build with secrets).
+    // Org/project come from env — never hardcoded. Hidden maps are uploaded then deleted.
+    ...(sentryEnabled
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+            authToken: sentryAuthToken,
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['./dist/**/*.map'],
+            },
+          }),
+        ]
+      : []),
   ],
+  // Hidden source maps only when the upload plugin is active (then deleted post-upload).
+  // Without the token, build behaviour matches today: no sourcemap emission.
+  build: {
+    ...(sentryEnabled ? { sourcemap: 'hidden' as const } : {}),
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',

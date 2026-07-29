@@ -13,6 +13,51 @@ function timestamp(): string { return new Date().toISOString() }
 function clone<T>(value: T): T { return structuredClone(value) }
 function collectionForStore(store: StoreName): StoreName { return store }
 
+/**
+ * Mirrors `public.set_order_lifecycle_timestamps()` in `supabase/schema.sql`.
+ * Storage owns paidAt/deliveredAt; client-supplied values on write are discarded
+ * (except INSERT coalesce of an already-set value when status requires one).
+ */
+function applyOrderLifecycleTimestamps(
+  next: StoredOrder,
+  previous: StoredOrder | null,
+): Pick<StoredOrder, 'paidAt' | 'deliveredAt'> {
+  const now = timestamp()
+  if (previous === null) {
+    // INSERT rules
+    switch (next.status) {
+      case 'new':
+        return { paidAt: null, deliveredAt: null }
+      case 'paid':
+        return { paidAt: next.paidAt ?? now, deliveredAt: null }
+      case 'delivered':
+        return { paidAt: next.paidAt ?? now, deliveredAt: next.deliveredAt ?? now }
+      case 'cancelled':
+        return { paidAt: next.paidAt, deliveredAt: null }
+      default:
+        // LocalAdapter is permissive for invalid statuses (parity divergence vs Postgres).
+        return { paidAt: next.paidAt ?? null, deliveredAt: next.deliveredAt ?? null }
+    }
+  }
+
+  // UPDATE rules — columns are trigger-owned; client-supplied values discarded
+  const enteringPaid = previous.status !== 'paid' && next.status === 'paid'
+  const enteringDelivered = previous.status !== 'delivered' && next.status === 'delivered'
+  const enteringCancelled = previous.status !== 'cancelled' && next.status === 'cancelled'
+
+  if (enteringPaid) {
+    return { paidAt: previous.paidAt ?? now, deliveredAt: null }
+  }
+  if (enteringDelivered) {
+    return { paidAt: previous.paidAt ?? now, deliveredAt: previous.deliveredAt ?? now }
+  }
+  if (enteringCancelled) {
+    return { paidAt: previous.paidAt, deliveredAt: null }
+  }
+  // any other update — preserve old values (ignore client patch of paidAt/deliveredAt)
+  return { paidAt: previous.paidAt, deliveredAt: previous.deliveredAt }
+}
+
 export class LocalAdapter implements StorageAdapter {
   private readonly database: IDBPDatabase | null
   private readonly channel: BroadcastChannel | null
@@ -126,9 +171,16 @@ export class LocalAdapter implements StorageAdapter {
   }
   async createOrder(order: StoredOrder): Promise<StoredOrder> {
     for (const item of order.items) await this.put('orderItems', item)
-    return this.put('orders', order)
+    const lifecycle = applyOrderLifecycleTimestamps(order, null)
+    return this.put('orders', { ...order, ...lifecycle })
   }
-  updateOrder = (id: string, patch: Partial<Omit<StoredOrder, 'id' | 'createdAt'>>): Promise<StoredOrder> => this.update('orders', id, patch)
+  async updateOrder(id: string, patch: Partial<Omit<StoredOrder, 'id' | 'createdAt'>>): Promise<StoredOrder> {
+    const current = await this.get('orders', id)
+    if (!current) throw new Error(`orders record ${id} does not exist.`)
+    const merged = { ...current, ...patch, updatedAt: timestamp() } as StoredOrder
+    const lifecycle = applyOrderLifecycleTimestamps(merged, current)
+    return this.put('orders', { ...merged, ...lifecycle }, true, 'update')
+  }
   async deleteOrder(id: string): Promise<void> {
     for (const item of await this.listOrderItems(id)) await this.remove('orderItems', item.id)
     await this.remove('orders', id)

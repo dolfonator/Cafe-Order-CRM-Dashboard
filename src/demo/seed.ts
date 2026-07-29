@@ -35,8 +35,8 @@ export const demoOrderItems: StoredOrderItem[] = [
 ]
 
 export const demoOrders: StoredOrder[] = [
-  { id: '40000000-0000-4000-8000-000000000001', customerId: demoCustomers[0].id, status: 'paid', items: [demoOrderItems[0]], subtotalCentavos: 40000, deliveryFeeCentavos: 3500, totalCentavos: 43500, deliveryDate: '2026-07-16', paymentReceived: true, rawSource: 'demo', addressSnapshot: 'Makati City', notes: 'Ring the lobby intercom.', routePosition: 1, createdAt: at, updatedAt: at },
-  { id: '40000000-0000-4000-8000-000000000002', customerId: demoCustomers[1].id, status: 'new', items: [demoOrderItems[1]], subtotalCentavos: 22000, deliveryFeeCentavos: 2500, totalCentavos: 24500, deliveryDate: '2026-07-16', paymentReceived: false, rawSource: 'demo', addressSnapshot: 'Quezon City', notes: null, routePosition: 2, createdAt: at, updatedAt: at },
+  { id: '40000000-0000-4000-8000-000000000001', customerId: demoCustomers[0].id, status: 'paid', items: [demoOrderItems[0]], subtotalCentavos: 40000, deliveryFeeCentavos: 3500, totalCentavos: 43500, deliveryDate: '2026-07-16', paymentReceived: true, rawSource: 'demo', addressSnapshot: 'Makati City', notes: 'Ring the lobby intercom.', routePosition: 1, paidAt: at, deliveredAt: null, createdAt: at, updatedAt: at },
+  { id: '40000000-0000-4000-8000-000000000002', customerId: demoCustomers[1].id, status: 'new', items: [demoOrderItems[1]], subtotalCentavos: 22000, deliveryFeeCentavos: 2500, totalCentavos: 24500, deliveryDate: '2026-07-16', paymentReceived: false, rawSource: 'demo', addressSnapshot: 'Quezon City', notes: null, routePosition: 2, paidAt: null, deliveredAt: null, createdAt: at, updatedAt: at },
 ]
 
 export const demoSettings: Setting[] = [{ id: '60000000-0000-4000-8000-000000000001', key: 'business', value: { name: 'Made by Angela', currency: 'PHP', timezone: 'Asia/Manila' }, createdAt: at, updatedAt: at }]

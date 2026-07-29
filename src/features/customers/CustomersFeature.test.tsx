@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 import { createInsightsFixture } from '../../../test/fixtures/insights/createInsightsFixture'
-import { relevantDeliveryDate } from '../today/TodayBoard'
+import { relevantDeliveryDate } from '../today/delivery-dates'
 import { CustomersFeature } from './CustomersFeature'
 import { loadCustomerProfile } from './customer-profile'
 

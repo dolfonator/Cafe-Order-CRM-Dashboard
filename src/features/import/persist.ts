@@ -46,6 +46,7 @@ export async function confirmImportDraft(adapter: StorageAdapter, draft: ImportD
     totalCentavos: priced.totals.totalCentavos,
     deliveryDate: draft.deliveryDate, paymentReceived: false, rawSource: draft.rawSource,
     addressSnapshot: draft.address, notes: draft.notes, routePosition: null,
+    paidAt: null, deliveredAt: null,
     createdAt: timestamp, updatedAt: timestamp,
   })
 }

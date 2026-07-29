@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocalAdapter, resetLocalAdapterMemoryForTests } from '../../data/local-adapter'
 import { demoOrders } from '../../demo/seed'
+import { formatLifecycleTimestamp } from '../orders/order-timestamps'
 import { canAdvance, canCancel, nextStatus } from '../orders/orderLifecycle'
 import { TodayBoard } from './TodayBoard'
 
@@ -160,5 +161,65 @@ describe('TodayBoard', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Paolo Reyes' })).not.toBeInTheDocument())
     expect(await adapter.getOrder(demoOrders[1].id)).toBeNull()
     expect(await adapter.listOrderItems(demoOrders[1].id)).toHaveLength(0)
+  })
+
+  it('surfaces storage-generated Paid/Delivered lines after real adapter advances, without rewriting paidAt', async () => {
+    const adapter = await createAdapter()
+    await adapter.updateOrder(demoOrders[1].id, { status: 'new', paymentReceived: false })
+    const user = userEvent.setup()
+    render(<TodayBoard adapter={adapter} initialDeliveryDate={deliveryDate} />)
+
+    const heading = await screen.findByRole('heading', { name: 'Paolo Reyes' })
+    let card = heading.closest('article')!
+    expect(within(card).queryByText(/^Paid /)).not.toBeInTheDocument()
+
+    await user.click(within(card).getByRole('button', { name: 'Mark Paid' }))
+    await waitFor(async () => {
+      const paid = await adapter.getOrder(demoOrders[1].id)
+      expect(paid).toMatchObject({ status: 'paid', paymentReceived: true })
+      expect(paid?.paidAt).toEqual(expect.any(String))
+      expect(paid?.deliveredAt).toBeNull()
+    })
+
+    const paidOrder = (await adapter.getOrder(demoOrders[1].id))!
+    const frozenPaidAt = paidOrder.paidAt
+    const paidLabel = `Paid ${formatLifecycleTimestamp(frozenPaidAt)}`
+    card = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
+    expect(within(card).getByText(paidLabel)).toBeInTheDocument()
+    expect(within(card).queryByText(/^Delivered /)).not.toBeInTheDocument()
+
+    await user.click(within(card).getByRole('button', { name: 'Mark Delivered' }))
+    await waitFor(async () => {
+      const delivered = await adapter.getOrder(demoOrders[1].id)
+      expect(delivered?.status).toBe('delivered')
+      expect(delivered?.paidAt).toBe(frozenPaidAt)
+      expect(delivered?.deliveredAt).toEqual(expect.any(String))
+    })
+
+    const deliveredOrder = (await adapter.getOrder(demoOrders[1].id))!
+    card = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
+    expect(within(card).getByText(paidLabel)).toBeInTheDocument()
+    expect(within(card).getByText(`Delivered ${formatLifecycleTimestamp(deliveredOrder.deliveredAt)}`)).toBeInTheDocument()
+  })
+
+  it('advance() never patches paidAt or deliveredAt onto updateOrder', async () => {
+    const adapter = await createAdapter()
+    await adapter.updateOrder(demoOrders[1].id, { status: 'new', paymentReceived: false })
+    const spy = vi.spyOn(adapter, 'updateOrder')
+    const user = userEvent.setup()
+    render(<TodayBoard adapter={adapter} initialDeliveryDate={deliveryDate} />)
+
+    const card = (await screen.findByRole('heading', { name: 'Paolo Reyes' })).closest('article')!
+    await user.click(within(card).getByRole('button', { name: 'Mark Paid' }))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+
+    const patches = spy.mock.calls.map(([, patch]) => patch)
+    expect(patches.length).toBeGreaterThan(0)
+    for (const patch of patches) {
+      expect(patch).not.toHaveProperty('paidAt')
+      expect(patch).not.toHaveProperty('deliveredAt')
+    }
+    // The advance path should still send status (+ paymentReceived for paid).
+    expect(patches.some((patch) => patch.status === 'paid' && patch.paymentReceived === true)).toBe(true)
   })
 })

@@ -24,7 +24,7 @@ function customer(id: string, name: string): StoredCustomer {
 }
 
 function order(customerId: string, addressSnapshot: string | null, updatedAt = '2026-07-02T00:00:00.000Z'): StoredOrder {
-  return { id: `order-${customerId}`, customerId, status: 'delivered', items: [], subtotalCentavos: 0, deliveryFeeCentavos: 0, totalCentavos: 0, deliveryDate: null, paymentReceived: true, rawSource: 'history', addressSnapshot, notes: null, routePosition: null, createdAt: updatedAt, updatedAt }
+  return { id: `order-${customerId}`, customerId, status: 'delivered', items: [], subtotalCentavos: 0, deliveryFeeCentavos: 0, totalCentavos: 0, deliveryDate: null, paymentReceived: true, rawSource: 'history', addressSnapshot, notes: null, routePosition: null, paidAt: '2026-07-01T00:00:00.000Z', deliveredAt: updatedAt, createdAt: updatedAt, updatedAt }
 }
 
 describe('T6 hostile import normalization and data-integrity audit', () => {

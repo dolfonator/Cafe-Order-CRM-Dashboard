@@ -35,8 +35,15 @@ Thumbs.db
 # Dependencies and build output
 node_modules/
 dist/
+dev-dist/
 build/
 *.log
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # Secrets — never commit these
 .env

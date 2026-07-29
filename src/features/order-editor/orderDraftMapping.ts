@@ -1,7 +1,7 @@
 import { getRuntimeCatalog } from '../../domain/catalog'
 import type { StoredOrder } from '../../data/types'
 import type { ImportDraft } from '../import/types'
-import { blankItem } from './OrderEditorCard'
+import { blankItem } from './order-draft-helpers'
 import { normalizeCupNames } from '../import/cup-names'
 
 function id(): string { return crypto.randomUUID() }

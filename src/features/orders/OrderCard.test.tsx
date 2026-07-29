@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { demoCustomers, demoOrders } from '../../demo/seed'
+import { formatLifecycleTimestamp } from './order-timestamps'
 import { OrderCard } from './OrderCard'
 
 const noop = async () => {}
@@ -72,5 +73,46 @@ describe('OrderCard lifecycle controls', () => {
     expect(screen.queryByRole('button', { name: 'GCash screenshot received' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Mark Paid' }))
     expect(onAdvance).toHaveBeenCalledWith(demoOrders[1])
+  })
+})
+
+describe('OrderCard lifecycle timestamps', () => {
+  it('renders neither Paid nor Delivered metadata for a new order', () => {
+    render(<OrderCard order={demoOrders[1]} customer={demoCustomers[1]} onAdvance={noop} onCancel={noop} />)
+    expect(screen.queryByText(/^Paid /)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Delivered /)).not.toBeInTheDocument()
+  })
+
+  it('renders Paid metadata for a paid order', () => {
+    const paid = demoOrders[0] // status paid, paidAt set, deliveredAt null
+    render(<OrderCard order={paid} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} />)
+    const formatted = formatLifecycleTimestamp(paid.paidAt)
+    expect(formatted).not.toBeNull()
+    expect(screen.getByText(`Paid ${formatted}`)).toBeInTheDocument()
+    expect(screen.queryByText(/^Delivered /)).not.toBeInTheDocument()
+  })
+
+  it('renders both Paid and Delivered metadata for a delivered order', () => {
+    const delivered = {
+      ...demoOrders[0],
+      status: 'delivered' as const,
+      paidAt: '2026-07-16T08:00:00.000Z',
+      deliveredAt: '2026-07-16T09:30:00.000Z',
+    }
+    render(<OrderCard order={delivered} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} />)
+    expect(screen.getByText(`Paid ${formatLifecycleTimestamp(delivered.paidAt)}`)).toBeInTheDocument()
+    expect(screen.getByText(`Delivered ${formatLifecycleTimestamp(delivered.deliveredAt)}`)).toBeInTheDocument()
+  })
+
+  it('renders Paid but not Delivered for a cancelled-with-payment order', () => {
+    const cancelledPaid = {
+      ...demoOrders[0],
+      status: 'cancelled' as const,
+      paidAt: '2026-07-16T08:00:00.000Z',
+      deliveredAt: null,
+    }
+    render(<OrderCard order={cancelledPaid} customer={demoCustomers[0]} onAdvance={noop} onCancel={noop} />)
+    expect(screen.getByText(`Paid ${formatLifecycleTimestamp(cancelledPaid.paidAt)}`)).toBeInTheDocument()
+    expect(screen.queryByText(/^Delivered /)).not.toBeInTheDocument()
   })
 })

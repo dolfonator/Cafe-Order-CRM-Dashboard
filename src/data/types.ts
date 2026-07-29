@@ -46,6 +46,10 @@ export type StoredOrder = Omit<Order, 'items'> & {
   addressSnapshot: string | null
   notes: string | null
   routePosition: number | null
+  /** ISO 8601; storage-generated. Client writes are ignored. */
+  paidAt: string | null
+  /** ISO 8601; storage-generated. Client writes are ignored. */
+  deliveredAt: string | null
 }
 
 export type Setting = {

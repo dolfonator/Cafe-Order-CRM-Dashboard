@@ -53,7 +53,15 @@ create table public.orders (
   notes text,
   route_position integer,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  paid_at timestamptz,
+  delivered_at timestamptz,
+  constraint orders_lifecycle_timestamps_consistent check (
+    (status = 'new' and paid_at is null and delivered_at is null)
+    or (status = 'paid' and paid_at is not null and delivered_at is null)
+    or (status = 'delivered' and paid_at is not null and delivered_at is not null and paid_at <= delivered_at)
+    or (status = 'cancelled' and delivered_at is null)
+  )
 );
 
 create table public.order_items (
@@ -87,10 +95,48 @@ begin
 end;
 $$;
 
+create function public.set_order_lifecycle_timestamps()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.status = 'new' then
+      new.paid_at := null;
+      new.delivered_at := null;
+    elsif new.status = 'paid' then
+      new.paid_at := coalesce(new.paid_at, now());
+      new.delivered_at := null;
+    elsif new.status = 'delivered' then
+      new.paid_at := coalesce(new.paid_at, now());
+      new.delivered_at := coalesce(new.delivered_at, now());
+    elsif new.status = 'cancelled' then
+      new.delivered_at := null;
+    end if;
+  elsif tg_op = 'UPDATE' then
+    if old.status is distinct from 'paid' and new.status = 'paid' then
+      new.paid_at := coalesce(old.paid_at, now());
+      new.delivered_at := null;
+    elsif old.status is distinct from 'delivered' and new.status = 'delivered' then
+      new.paid_at := coalesce(old.paid_at, now());
+      new.delivered_at := coalesce(old.delivered_at, now());
+    elsif old.status is distinct from 'cancelled' and new.status = 'cancelled' then
+      new.paid_at := old.paid_at;
+      new.delivered_at := null;
+    else
+      new.paid_at := old.paid_at;
+      new.delivered_at := old.delivered_at;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
 create trigger products_set_updated_at before update on public.products for each row execute function public.set_updated_at();
 create trigger modifier_groups_set_updated_at before update on public.modifier_groups for each row execute function public.set_updated_at();
 create trigger customers_set_updated_at before update on public.customers for each row execute function public.set_updated_at();
 create trigger orders_set_updated_at before update on public.orders for each row execute function public.set_updated_at();
+create trigger orders_set_lifecycle_timestamps before insert or update on public.orders for each row execute function public.set_order_lifecycle_timestamps();
 create trigger order_items_set_updated_at before update on public.order_items for each row execute function public.set_updated_at();
 create trigger settings_set_updated_at before update on public.settings for each row execute function public.set_updated_at();
 

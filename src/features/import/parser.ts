@@ -29,15 +29,15 @@ function thermalBags(value: unknown): ImportThermalBag[] {
 
 function normalizeItem(item: StructuralItem, index: number, unresolved: string[]): ImportItem {
   const productSlug = normalizeProductSlug(item.product_slug)
-  if (!productSlug) unresolved.push(`Item ${index + 1}: unknown product \"${String(item.product_slug ?? '')}\"`)
+  if (!productSlug) unresolved.push(`Item ${index + 1}: unknown product "${String(item.product_slug ?? '')}"`)
   const quantity = numberOrNull(item.quantity)
   if (!quantity || quantity < 1) unresolved.push(`Item ${index + 1}: quantity must be a positive integer`)
   const level = item.level === undefined || item.level === null || item.level === '' ? defaultLevel(productSlug) : normalizeLevel(item.level)
-  if (!level) unresolved.push(`Item ${index + 1}: unknown level \"${String(item.level ?? '')}\"`)
+  if (!level) unresolved.push(`Item ${index + 1}: unknown level "${String(item.level ?? '')}"`)
   const powder = item.powder === undefined || item.powder === null || item.powder === '' ? 'yumeno' : normalizePowder(item.powder)
-  if (!powder) unresolved.push(`Item ${index + 1}: unknown powder \"${String(item.powder ?? '')}\"`)
+  if (!powder) unresolved.push(`Item ${index + 1}: unknown powder "${String(item.powder ?? '')}"`)
   const sweetness = normalizeSweetness(item.sweetness)
-  if (sweetness === null) unresolved.push(`Item ${index + 1}: unknown sweetness \"${String(item.sweetness ?? '')}\"`)
+  if (sweetness === null) unresolved.push(`Item ${index + 1}: unknown sweetness "${String(item.sweetness ?? '')}"`)
   const cupNames = normalizeCupNames(item.cup_names)
   return { id: id(), productSlug, quantity, level, powder, ...(sweetness === undefined ? {} : { sweetness }), ...(cupNames.length > 0 ? { cupNames } : {}) }
 }
@@ -159,8 +159,4 @@ export function validateDraft(draft: ImportDraft): DraftValidation {
     errors.push(error instanceof PricingError ? error.message : 'The draft could not be priced')
     return { errors, warnings, totalCentavos: null, itemTotalsCentavos: new Map() }
   }
-}
-
-export function formatPhp(centavos: number): string {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(centavos / 100)
 }

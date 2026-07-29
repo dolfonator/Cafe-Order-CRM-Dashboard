@@ -6,20 +6,7 @@ import { canAdvance, canCancel, nextStatus, operationalStatuses, statusLabels } 
 import { useOrdersData } from '../orders/useOrdersData'
 import { OrderEditorModal } from '../order-editor/OrderEditorModal'
 import { blankImportDraft, storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
-
-const deliveryDays = new Set([0, 2, 3, 4, 5])
-
-function asDateInput(date: Date): string {
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10)
-}
-
-/** The next operational delivery day, treating an open day as the current run. */
-export function relevantDeliveryDate(now = new Date()): string {
-  const next = new Date(now)
-  while (!deliveryDays.has(next.getDay())) next.setDate(next.getDate() + 1)
-  return asDateInput(next)
-}
+import { relevantDeliveryDate } from './delivery-dates'
 
 function customerFor(customers: StoredCustomer[], order: StoredOrder): StoredCustomer | undefined {
   return customers.find((customer) => customer.id === order.customerId)

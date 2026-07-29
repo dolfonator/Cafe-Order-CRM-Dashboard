@@ -6,7 +6,7 @@ import { confirmImportDraft } from '../persist'
 import { formatCupNames, MAX_CUP_NAME_LENGTH, normalizeCupNames, padCupNames } from '../cup-names'
 import { saveOrderEdit } from '../../order-editor/saveOrderEdit'
 import { storedOrderToImportDraft } from '../../order-editor/orderDraftMapping'
-import { setCupName } from '../../order-editor/OrderEditorCard'
+import { setCupName } from '../../order-editor/order-draft-helpers'
 
 async function adapterWithCustomers() {
   resetLocalAdapterMemoryForTests()

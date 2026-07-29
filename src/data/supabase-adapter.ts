@@ -23,9 +23,9 @@ function fromItem(row: Row): StoredOrderItem {
 }
 function toItem(item: StoredOrderItem): Row { return { id: item.id, order_id: item.orderId, product_id: item.productId, product_name_snapshot: item.productName, quantity: item.quantity, modifiers: item.modifiers, unit_price_centavos: item.unitPriceCentavos, line_total_centavos: item.lineTotalCentavos, created_at: item.createdAt, updated_at: item.updatedAt } }
 function fromOrder(row: Row, items: StoredOrderItem[] = []): StoredOrder {
-  return { id: string(row, 'id'), customerId: string(row, 'customer_id'), status: string(row, 'status') as StoredOrder['status'], items, subtotalCentavos: number(row, 'subtotal_centavos'), deliveryFeeCentavos: number(row, 'delivery_fee_centavos'), totalCentavos: number(row, 'total_centavos'), deliveryDate: nullableString(row, 'delivery_date'), paymentReceived: bool(row, 'payment_received'), rawSource: string(row, 'raw_source'), addressSnapshot: nullableString(row, 'address_snapshot'), notes: nullableString(row, 'notes'), routePosition: row.route_position == null ? null : number(row, 'route_position'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') }
+  return { id: string(row, 'id'), customerId: string(row, 'customer_id'), status: string(row, 'status') as StoredOrder['status'], items, subtotalCentavos: number(row, 'subtotal_centavos'), deliveryFeeCentavos: number(row, 'delivery_fee_centavos'), totalCentavos: number(row, 'total_centavos'), deliveryDate: nullableString(row, 'delivery_date'), paymentReceived: bool(row, 'payment_received'), rawSource: string(row, 'raw_source'), addressSnapshot: nullableString(row, 'address_snapshot'), notes: nullableString(row, 'notes'), routePosition: row.route_position == null ? null : number(row, 'route_position'), paidAt: nullableString(row, 'paid_at'), deliveredAt: nullableString(row, 'delivered_at'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') }
 }
-function toOrder(order: StoredOrder): Row { return { id: order.id, customer_id: order.customerId, status: order.status, subtotal_centavos: order.subtotalCentavos, delivery_fee_centavos: order.deliveryFeeCentavos, total_centavos: order.totalCentavos, delivery_date: order.deliveryDate, payment_received: order.paymentReceived, raw_source: order.rawSource, address_snapshot: order.addressSnapshot, notes: order.notes, route_position: order.routePosition, created_at: order.createdAt, updated_at: order.updatedAt } }
+function toOrder(order: StoredOrder): Row { return { id: order.id, customer_id: order.customerId, status: order.status, subtotal_centavos: order.subtotalCentavos, delivery_fee_centavos: order.deliveryFeeCentavos, total_centavos: order.totalCentavos, delivery_date: order.deliveryDate, payment_received: order.paymentReceived, raw_source: order.rawSource, address_snapshot: order.addressSnapshot, notes: order.notes, route_position: order.routePosition, paid_at: order.paidAt, delivered_at: order.deliveredAt, created_at: order.createdAt, updated_at: order.updatedAt } }
 function fromSetting(row: Row): Setting { return { id: string(row, 'id'), key: string(row, 'key'), value: (row.value ?? null) as Setting['value'], createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') } }
 function toSetting(setting: Setting): Row { return { id: setting.id, key: setting.key, value: setting.value, created_at: setting.createdAt, updated_at: setting.updatedAt } }
 // settings.id is a uuid column with a gen_random_uuid() default. Callers key settings by `key`, not by id,
@@ -61,7 +61,11 @@ export class SupabaseAdapter implements StorageAdapter {
   }
   private async replace(table: string, id: string, value: Row): Promise<Row> {
     await this.authenticated()
-    const { data, error } = await this.client.from(table).update(value).eq('id', id).select().single()
+    // Postgres owns created_at / updated_at (defaults + set_updated_at triggers). Never send them in UPDATE payloads.
+    const payload = { ...value }
+    delete payload.created_at
+    delete payload.updated_at
+    const { data, error } = await this.client.from(table).update(payload).eq('id', id).select().single()
     if (error) throw new Error(`Supabase ${table} update failed: ${error.message}`)
     return asRow(data)
   }
@@ -127,10 +131,18 @@ export class SupabaseAdapter implements StorageAdapter {
     const tables: Record<string, StorageCollection> = { products: 'products', modifier_groups: 'modifierGroups', customers: 'customers', orders: 'orders', order_items: 'orderItems', settings: 'settings' }
     const channel = this.client.channel('order-dashboard-storage')
     for (const [table, collection] of Object.entries(tables)) {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, async (payload) => {
         const row = asRow(payload.eventType === 'DELETE' ? payload.old : payload.new)
         const operation = payload.eventType === 'INSERT' ? 'insert' : payload.eventType === 'DELETE' ? 'delete' : 'update'
-        const entity = collection === 'products' ? fromProduct(row) : collection === 'modifierGroups' ? fromGroup(row) : collection === 'customers' ? fromCustomer(row) : collection === 'orders' ? fromOrder(row) : collection === 'orderItems' ? fromItem(row) : fromSetting(row)
+        if (collection === 'orders') {
+          // A realtime payload carries the orders row only — items live in a separate table.
+          // Fetch them so subscribers see the same populated order LocalAdapter emits.
+          // On DELETE the child rows are already gone (cascade), so [] is the honest answer.
+          const items = operation === 'delete' ? [] : await this.listOrderItems(string(row, 'id')).catch(() => [])
+          listener({ collection, operation, entity: fromOrder(row, items) } as StorageChange)
+          return
+        }
+        const entity = collection === 'products' ? fromProduct(row) : collection === 'modifierGroups' ? fromGroup(row) : collection === 'customers' ? fromCustomer(row) : collection === 'orderItems' ? fromItem(row) : fromSetting(row)
         listener({ collection, operation, entity } as StorageChange)
       })
     }

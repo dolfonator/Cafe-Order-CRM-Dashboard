@@ -3,12 +3,11 @@ import { useMemo } from 'react'
 import { getRuntimeCatalog } from '../../domain/catalog'
 import type { StoredCustomer, StoredOrder } from '../../data/types'
 import { applyCustomerMatch } from '../import/customer-matching'
-import { formatPhp, validateDraft } from '../import/parser'
-import type { ImportDraft, ImportItem, ImportThermalBag } from '../import/types'
+import { validateDraft } from '../import/parser'
+import type { ImportDraft } from '../import/types'
 import { MAX_CUP_NAME_LENGTH, padCupNames } from '../import/cup-names'
-
-export function blankItem(): ImportItem { return { id: crypto.randomUUID(), productSlug: 'matcha-latte', quantity: 1, level: 1, powder: 'yumeno' } }
-export function blankBag(): ImportThermalBag { return { id: crypto.randomUUID(), coveredCupCount: 1 } }
+import { formatPhp } from '../orders/order-display'
+import { blankBag, blankItem, setCupName, updateItem } from './order-draft-helpers'
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold uppercase tracking-[0.12em] text-[#4A5365]">{children}</label>
@@ -22,20 +21,6 @@ export function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>
   return <select {...props} className={`mt-1 min-h-11 w-full rounded-xl border border-[#4F74C8]/25 bg-white px-3 text-sm text-[#20242f] outline-none transition-colors focus:border-[#4F74C8] focus:ring-2 focus:ring-[#4F74C8]/20 ${props.className ?? ''}`} />
 }
 
-export function updateItem(draft: ImportDraft, itemId: string, patch: Partial<ImportItem>): ImportDraft {
-  return { ...draft, items: draft.items.map((item) => item.id === itemId ? { ...item, ...patch } : item) }
-}
-
-/**
- * Sets one cup's name. Trailing blanks are trimmed so an untouched item never
- * carries an empty `cupNames` array into storage.
- */
-export function setCupName(item: ImportItem, cupIndex: number, value: string): Partial<ImportItem> {
-  const names = padCupNames(item.cupNames, item.quantity).map((name, index) => index === cupIndex ? value.slice(0, MAX_CUP_NAME_LENGTH) : name)
-  while (names.length > 0 && names[names.length - 1].trim() === '') names.pop()
-  return { cupNames: names.map((name) => name.trim()) }
-}
-
 export function OrderEditorCard({ draft, customers, orders, confirming, onChange, onConfirm }: {
   draft: ImportDraft
   customers: StoredCustomer[]
@@ -45,6 +30,12 @@ export function OrderEditorCard({ draft, customers, orders, confirming, onChange
   onConfirm: () => void
 }) {
   const catalog = getRuntimeCatalog()
+  // `catalog` reads as redundant to the linter, but it is load-bearing.
+  // getRuntimeCatalog() returns a fresh object on every call, so naming it here
+  // re-runs validateDraft on every render — which is how a price the owner edits
+  // in Settings reaches an order editor that is already mounted. Dropping the
+  // dependency was tried and reverted; catalog-memo.test.tsx pins the behaviour.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
   const validation = useMemo(() => validateDraft(draft), [draft, catalog])
   const mutate = (next: ImportDraft) => onChange(applyCustomerMatch(next, customers, orders))
   return (
