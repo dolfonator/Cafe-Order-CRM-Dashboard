@@ -52,10 +52,4 @@ playwright/.cache/
 *.pem
 *.key
 
-# Local AI-agent scaffolding (keep on disk, keep off GitHub)
-CLAUDE.md
-master.md
-AGENTS.md
-.claude/
-.impeccable/
 # <<< repo-hygiene <<<

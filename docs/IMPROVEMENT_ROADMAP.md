@@ -9,7 +9,7 @@
 ## Read this first
 
 1. Read the project-level `master.md`, then this roadmap.
-2. Work from a `codex/` branch and preserve unrelated user changes.
+2. Work from a feature branch and preserve unrelated user changes.
 3. Complete the phases in order. Each phase gets its own focused pull request and release record.
 4. Never use production customer/order data for automated tests. Browser E2E runs only in demo mode.
 5. Database changes remain versioned in Git and manually applied through Supabase SQL Editor during a maintenance window.
