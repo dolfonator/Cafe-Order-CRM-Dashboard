@@ -58,13 +58,25 @@ Keep that folder somewhere durable. Prefer a cloud drive or a second machine so 
 | Order | Table | Suggested filename |
 |------:|-------|--------------------|
 | 1 | `products` | `01-products.csv` |
-| 2 | `modifier_groups` | `02-modifier_groups.csv` |
+| 2 | `modifier_groups` | *skip — see note below* |
 | 3 | `customers` | `03-customers.csv` |
 | 4 | `orders` | `04-orders.csv` |
 | 5 | `order_items` | `05-order_items.csv` |
 | 6 | `settings` | `06-settings.csv` |
 
-5. Confirm the dated folder contains **six** CSV files before you close the browser.
+> **`modifier_groups` is expected to be empty — skip it.** The Table Editor
+> refuses to export a table with no rows ("The table modifier_groups has no rows
+> to export"); that is a UI limitation, not a failed backup. The table is
+> vestigial: it has a full adapter CRUD surface but no caller anywhere in the
+> app. The modifiers the app actually uses are hardcoded in
+> `src/domain/contracts.ts` and assigned per product in `src/domain/catalog.ts`,
+> and each cup's chosen options are stored as jsonb on `order_items.modifiers`,
+> which `05-order_items.csv` already captures. Record it in `MANIFEST.txt` as
+> `modifier_groups=0 (expected, table unused)` and move on. If this table ever
+> does contain rows, stop and find out what wrote them before proceeding.
+
+5. Confirm the dated folder contains **five** CSV files before you close the
+   browser (six tables, minus the skipped `modifier_groups`).
 
 If the UI has changed and you cannot find Export, use the table’s overflow menu (⋯) or check Supabase’s current docs for “export table CSV” — do not invent SQL or CLI steps for Option A.
 
@@ -120,7 +132,7 @@ Replace `YYYY-MM-DD` with the real date. Create `$HOME/Backups/cafe/` first if i
 Always load **parents before children**:
 
 1. `products`
-2. `modifier_groups`
+2. `modifier_groups` — normally nothing to load; no CSV is exported for it (see section 3)
 3. `customers`
 4. `orders`
 5. `order_items`
@@ -177,13 +189,13 @@ A backup is only useful if it actually contains data. After every export (and af
 | Table | Sanity check |
 |-------|----------------|
 | `products` | **Exactly six** rows for the closed catalog. **More than six** means extra rows exist under different names — treat that as a known open item and investigate; do not silently “fix” by deleting without a plan. **Fewer than six** may mean catalog loss (the failure mode that already happened once). |
-| `modifier_groups` | Non-empty if the cafe uses modifiers; compare to Table Editor. |
+| `modifier_groups` | **Expected empty — no CSV file.** Confirmed 2026-07-29: the table is unused by the app. Rows appearing here are a signal to investigate, not a backup to verify. |
 | `customers` | Roughly matches the customer list you expect (order of magnitude is enough). |
 | `orders` | Roughly matches order history volume. |
 | `order_items` | Should be **at least** as many rows as orders (usually more). Zero items with many orders is wrong. |
 | `settings` | Usually a small fixed set of rows; empty may mean defaults only or a problem — compare to Table Editor. |
 
-4. Optionally write the counts into a one-line `MANIFEST.txt` in the same dated folder, e.g. `products=6 customers=… orders=…`.
+4. Optionally write the counts into a one-line `MANIFEST.txt` in the same dated folder, e.g. `products=6 modifier_groups=0 (expected, table unused) customers=… orders=…`.
 
 ### `pg_dump` (Option B)
 
@@ -198,7 +210,7 @@ A backup is only useful if it actually contains data. After every export (and af
 Run this **before** applying any versioned SQL file from `supabase/migrations/` by hand in a maintenance window:
 
 1. [ ] Tell anyone who uses the dashboard that orders will pause for the window.
-2. [ ] Complete a full Option A CSV export of all six tables into a new `cafe-backup-YYYY-MM-DD` folder (and/or Option B dump if a developer is present).
+2. [ ] Complete a full Option A CSV export into a new `cafe-backup-YYYY-MM-DD` folder — five files, since `modifier_groups` is expected empty and is skipped (and/or Option B dump if a developer is present).
 3. [ ] Verify the backup (section 5) — especially `products` = 6 and non-empty `orders` / `order_items` if you had production traffic.
 4. [ ] Note the migration filename you will apply and keep it open side by side with this checklist.
 5. [ ] Prefer applying migrations only when you can stay at the computer until verification finishes.
