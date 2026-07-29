@@ -16,6 +16,13 @@ create table public.products (
   updated_at timestamptz not null default now()
 );
 
+-- DORMANT TABLE — expected to be empty in production; nothing reads or writes it.
+-- The app's modifiers are a fixed union in src/domain/contracts.ts, assigned per
+-- product in src/domain/catalog.ts; per-cup selections live in order_items.modifiers
+-- jsonb. Owner-editable catalog data is persisted as JSON in `settings` (see
+-- getRuntimeCatalog()) — extend that for editable modifiers, not this table.
+-- Rows appearing here are a signal that something unexpected wrote to it.
+-- Kept rather than dropped because it is inert: no rows, no FK references, no cost.
 create table public.modifier_groups (
   id uuid primary key default gen_random_uuid(),
   name text not null,

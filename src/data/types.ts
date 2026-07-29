@@ -92,6 +92,16 @@ export interface StorageAdapter {
   updateProduct(id: string, patch: Partial<Omit<StoredProduct, 'id' | 'createdAt'>>): Promise<StoredProduct>
   deleteProduct(id: string): Promise<void>
 
+  // DORMANT — do not build on these without reading this first.
+  // Nothing in the app calls them: no feature, page or hook reads or writes
+  // modifier groups, and production `public.modifier_groups` is empty by design.
+  // The modifiers actually in use are a fixed union in `src/domain/contracts.ts`,
+  // assigned per product in `src/domain/catalog.ts`; each cup's chosen options are
+  // stored as jsonb on `order_items.modifiers`. Owner-editable catalog data (prices,
+  // availability, upcharges) goes through `getRuntimeCatalog()` and is persisted as
+  // JSON in the `settings` table — that is the mechanism to extend for editable
+  // modifiers, NOT this table. Writing here would put modifier config in two places
+  // with the app honouring only one.
   listModifierGroups(): Promise<ModifierGroup[]>
   getModifierGroup(id: string): Promise<ModifierGroup | null>
   createModifierGroup(group: ModifierGroup): Promise<ModifierGroup>
