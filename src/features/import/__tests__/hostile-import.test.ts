@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { StoredCustomer, StoredOrder } from '../../../data/types'
+import { MAX_CUPS_PER_ORDER } from '../../../domain/pricing'
+import { padCupNames } from '../cup-names'
 import { applyCustomerMatch } from '../customer-matching'
-import { normalizeFunctionResponse, parseLocalInput, validateDraft } from '../parser'
+import { normalizeCandidate, normalizeFunctionResponse, parseLocalInput, validateDraft } from '../parser'
 import { malformedJsonLines, taglishStructuralResponse, taglishThread, validJsonLinesWithBlankLines } from '../../../../test/fixtures/import/hostile/hostile-import-fixtures'
 
 function local(raw: string) {
@@ -71,6 +73,43 @@ describe('T6 hostile import normalization and data-integrity audit', () => {
       expect(validateDraft(draft).totalCentavos, String(quantity)).toBeNull()
       expect(validateDraft(draft).errors.join(' '), String(quantity)).toMatch(/quantity must be a positive integer/i)
     }
+  })
+
+  it(`accepts an import with exactly ${100} cups`, () => {
+    const [draft] = local(JSON.stringify(candidate({ items: [{ product_slug: 'matcha-latte', quantity: MAX_CUPS_PER_ORDER }] })))
+    const validation = validateDraft(draft)
+    expect(validation.errors).toEqual([])
+    expect(validation.totalCentavos).toBe(20000 * MAX_CUPS_PER_ORDER)
+  })
+
+  it('rejects a single-line hostile quantity of 101 cups before a total is assigned', () => {
+    const [draft] = local(JSON.stringify(candidate({ items: [{ product_slug: 'matcha-latte', quantity: MAX_CUPS_PER_ORDER + 1 }] })))
+    const validation = validateDraft(draft)
+    expect(validation.totalCentavos).toBeNull()
+    expect(validation.errors.join(' ')).toMatch(/cannot exceed 100 cups/i)
+  })
+
+  it('rejects multi-line imports whose cup total exceeds the ceiling', () => {
+    const [draft] = local(JSON.stringify(candidate({
+      items: [
+        { product_slug: 'matcha-latte', quantity: 60 },
+        { product_slug: 'hojicha-latte', quantity: 41 },
+      ],
+    })))
+    const validation = validateDraft(draft)
+    expect(validation.totalCentavos).toBeNull()
+    expect(validation.errors.join(' ')).toMatch(/cannot exceed 100 cups/i)
+  })
+
+  it('never allocates more than MAX_CUPS_PER_ORDER cup-name editor slots from a hostile model quantity', () => {
+    const draft = normalizeCandidate(
+      { customer_name: 'Hostile', items: [{ product_slug: 'matcha-latte', quantity: 50_000, cup_names: ['Ana'] }], address: 'Makati' },
+      'hostile',
+    )
+    expect(draft.unresolvedFields.join(' ')).toMatch(/cannot exceed 100 cups/i)
+    const slots = padCupNames(draft.items[0].cupNames, draft.items[0].quantity)
+    expect(slots.length).toBe(MAX_CUPS_PER_ORDER)
+    expect(slots.length).toBeLessThanOrEqual(MAX_CUPS_PER_ORDER)
   })
 
   it('uses the shared pricing engine even when item, bag, and order JSON carry fake prices', () => {

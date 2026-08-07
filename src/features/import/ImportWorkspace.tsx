@@ -2,6 +2,7 @@ import { Clipboard, LoaderCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getRuntimeCatalog } from '../../domain/catalog'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
+import { getAuthClient } from '../auth/supabaseAuth'
 import { loadDashboardSettings } from '../settings/settings-store'
 import { FieldLabel, OrderEditorCard } from '../order-editor/OrderEditorCard'
 import { applyCustomerMatch } from './customer-matching'
@@ -36,9 +37,34 @@ export function ImportWorkspace({ adapter }: ImportWorkspaceProps) {
     const local = parseLocalInput(rawText)
     if (local.kind === 'empty') { setMessage('Paste an order conversation, JSON object, or JSON Lines first.'); return }
     if (local.kind === 'local') { setDrafts(local.drafts.map((draft) => applyCustomerMatch(draft, customers, orders))); setMessage(`Parsed locally — no network request was made.`); return }
+
+    const authClient = getAuthClient()
+    if (!authClient) {
+      setMessage('Sign in is required to use the extraction service.')
+      return
+    }
+    let accessToken: string | undefined
+    try {
+      const { data } = await authClient.auth.getSession()
+      accessToken = data.session?.access_token
+    } catch {
+      accessToken = undefined
+    }
+    if (!accessToken) {
+      setMessage('Sign in is required to use the extraction service.')
+      return
+    }
+
     setLoading(true)
     try {
-      const response = await fetch('/.netlify/functions/parse-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ raw_text: rawText }) })
+      const response = await fetch('/.netlify/functions/parse-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ raw_text: rawText }),
+      })
       const body: unknown = await response.json()
       if (!response.ok) throw new Error(typeof body === 'object' && body !== null && 'error' in body ? String(body.error) : 'The extraction service failed')
       setDrafts(normalizeFunctionResponse(body, rawText).map((draft) => applyCustomerMatch(draft, customers, orders)))

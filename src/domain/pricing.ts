@@ -21,6 +21,9 @@ import type {
 import { assertMoneyCentavos } from './money'
 import { PricingError } from './pricing-error'
 
+/** Hard ceiling on total drink cups per order (import, edit, and pricing). */
+export const MAX_CUPS_PER_ORDER = 100
+
 function fail(code: PricingError['code'], message: string): never {
   throw new PricingError(code, message)
 }
@@ -133,6 +136,19 @@ function priceThermalBag(draft: ThermalBagDraft): ThermalBag {
 export function priceOrder(draft: OrderDraft): PricedOrder {
   if (!isRecord(draft) || !Array.isArray(draft.items)) {
     fail('UNKNOWN_PRODUCT', 'Order draft must include an items array')
+  }
+
+  // Fail fast on total cup count before pricing work or cup-name allocations.
+  let totalCups = 0
+  for (const item of draft.items) {
+    if (!isRecord(item)) {
+      fail('UNKNOWN_PRODUCT', 'Order item must be an object')
+    }
+    validateQuantity(item.quantity)
+    totalCups += item.quantity
+    if (totalCups > MAX_CUPS_PER_ORDER) {
+      fail('TOO_MANY_CUPS', `An order cannot exceed ${MAX_CUPS_PER_ORDER} cups`)
+    }
   }
 
   const items = draft.items.map(priceItem)

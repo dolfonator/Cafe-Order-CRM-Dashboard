@@ -7,3 +7,14 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Browser hardening — keep aligned with vercel.json. Do not add CSP script/style
+# directives here that would break Vite chunks, Supabase, Sentry, or the PWA SW.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

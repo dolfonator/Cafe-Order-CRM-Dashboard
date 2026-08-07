@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { LocalAdapter, resetLocalAdapterMemoryForTests } from '../../data/local-adapter'
 import type { StorageAdapter, StoredOrder } from '../../data/types'
 import { demoCustomers, demoOrders } from '../../demo/seed'
+import { customerProfileKey, saveCustomerProfile } from './customer-profile'
 import { deleteCustomerCascade } from './deleteCustomerCascade'
 
 /** Wraps an adapter to record the sequence of deleteOrder/deleteCustomer calls, without changing behavior. */
@@ -70,6 +71,32 @@ describe('deleteCustomerCascade', () => {
 
     await expect(deleteCustomerCascade(adapter, customerId)).resolves.toBeUndefined()
     expect(await adapter.getCustomer(customerId)).toBeNull()
+
+    await adapter.close()
+  })
+
+  it('removes the customer profile settings row so profile PII does not remain after deletion', async () => {
+    resetLocalAdapterMemoryForTests()
+    const adapter = await LocalAdapter.create()
+    const customerId = demoCustomers[0].id
+    await saveCustomerProfile(adapter, customerId, {
+      notes: 'Prefers quiet drop-off. Phone alternate: 09xx',
+      address: '123 Private Lane, Makati',
+      preferences: 'L2 yumeno only',
+    })
+    expect(await adapter.getSetting(customerProfileKey(customerId))).not.toBeNull()
+
+    await deleteCustomerCascade(adapter, customerId)
+
+    expect(await adapter.getCustomer(customerId)).toBeNull()
+    expect(await adapter.getSetting(customerProfileKey(customerId))).toBeNull()
+    const remainingSettings = await adapter.listSettings()
+    expect(remainingSettings.some((setting) => setting.key === customerProfileKey(customerId))).toBe(false)
+    expect(remainingSettings.some((setting) => {
+      if (typeof setting.value !== 'object' || setting.value === null) return false
+      const serialized = JSON.stringify(setting.value)
+      return serialized.includes('Private Lane') || serialized.includes('09xx')
+    })).toBe(false)
 
     await adapter.close()
   })

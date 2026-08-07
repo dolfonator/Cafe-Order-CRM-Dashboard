@@ -5,8 +5,21 @@ import { LocalAdapter, resetLocalAdapterMemoryForTests } from '../../../data/loc
 import { ImportWorkspace } from '../ImportWorkspace'
 import { duplicatePastedJsonLines, splitCustomerStructuralResponse, splitCustomerThread, unsafeText } from '../../../../test/fixtures/import/hostile/hostile-import-fixtures'
 
+const getSessionMock = vi.fn()
+const getAuthClientMock = vi.fn()
+
+vi.mock('../../auth/supabaseAuth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../auth/supabaseAuth')>()
+  return {
+    ...actual,
+    getAuthClient: () => getAuthClientMock(),
+  }
+})
+
 async function renderWorkspace() {
   resetLocalAdapterMemoryForTests()
+  getSessionMock.mockResolvedValue({ data: { session: { access_token: 'test-session-token' } } })
+  getAuthClientMock.mockReturnValue({ auth: { getSession: getSessionMock } })
   const adapter = await LocalAdapter.create()
   render(<ImportWorkspace adapter={adapter} />)
   return adapter
@@ -18,7 +31,11 @@ async function pasteAndParse(user: ReturnType<typeof userEvent.setup>, value: st
   await user.click(screen.getByRole('button', { name: 'Create editable drafts' }))
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  getSessionMock.mockReset()
+  getAuthClientMock.mockReset()
+})
 
 describe('T6 hostile import transport, rendering, and confirmation audit', () => {
   it('stubs free-text extraction deterministically, keeps the split customer in one draft, and independently reprices it', async () => {

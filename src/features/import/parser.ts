@@ -1,4 +1,4 @@
-import { priceOrder } from '../../domain/pricing'
+import { MAX_CUPS_PER_ORDER, priceOrder } from '../../domain/pricing'
 import type { OrderDraft, ProductSlug } from '../../domain/contracts'
 import { PricingError } from '../../domain/pricing-error'
 import { defaultLevel, normalizeLevel, normalizePowder, normalizeProductSlug, normalizeSweetness } from './catalog'
@@ -32,6 +32,9 @@ function normalizeItem(item: StructuralItem, index: number, unresolved: string[]
   if (!productSlug) unresolved.push(`Item ${index + 1}: unknown product "${String(item.product_slug ?? '')}"`)
   const quantity = numberOrNull(item.quantity)
   if (!quantity || quantity < 1) unresolved.push(`Item ${index + 1}: quantity must be a positive integer`)
+  else if (quantity > MAX_CUPS_PER_ORDER) {
+    unresolved.push(`Item ${index + 1}: quantity cannot exceed ${MAX_CUPS_PER_ORDER} cups`)
+  }
   const level = item.level === undefined || item.level === null || item.level === '' ? defaultLevel(productSlug) : normalizeLevel(item.level)
   if (!level) unresolved.push(`Item ${index + 1}: unknown level "${String(item.level ?? '')}"`)
   const powder = item.powder === undefined || item.powder === null || item.powder === '' ? 'yumeno' : normalizePowder(item.powder)
@@ -39,6 +42,7 @@ function normalizeItem(item: StructuralItem, index: number, unresolved: string[]
   const sweetness = normalizeSweetness(item.sweetness)
   if (sweetness === null) unresolved.push(`Item ${index + 1}: unknown sweetness "${String(item.sweetness ?? '')}"`)
   const cupNames = normalizeCupNames(item.cup_names)
+  // Quantity is retained for error display; padCupNames hard-caps Array.from size.
   return { id: id(), productSlug, quantity, level, powder, ...(sweetness === undefined ? {} : { sweetness }), ...(cupNames.length > 0 ? { cupNames } : {}) }
 }
 
@@ -47,6 +51,10 @@ export function normalizeCandidate(candidate: StructuralOrder, rawSource: string
   const items = structuralItems(candidate.items)
   if (items.length === 0) unresolved.push('At least one order item is required')
   const importedItems = items.map((item, index) => normalizeItem(item, index, unresolved))
+  const totalCups = importedItems.reduce((sum, item) => sum + (item.quantity ?? 0), 0)
+  if (totalCups > MAX_CUPS_PER_ORDER) {
+    unresolved.push(`An order cannot exceed ${MAX_CUPS_PER_ORDER} cups in total`)
+  }
   const bags = thermalBags(candidate.thermal_bags)
   bags.forEach((bag, index) => {
     if (!bag.coveredCupCount || bag.coveredCupCount < 1 || bag.coveredCupCount > 4) unresolved.push(`Thermal bag ${index + 1}: it must cover 1, 2, 3, or 4 cups`)

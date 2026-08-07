@@ -3,6 +3,7 @@ import { LocalAdapter, resetLocalAdapterMemoryForTests } from '../../../data/loc
 import { normalizeCandidate, parseLocalInput, validateDraft } from '../parser'
 import { applyCustomerMatch } from '../customer-matching'
 import { confirmImportDraft } from '../persist'
+import { MAX_CUPS_PER_ORDER } from '../../../domain/pricing'
 import { formatCupNames, MAX_CUP_NAME_LENGTH, normalizeCupNames, padCupNames } from '../cup-names'
 import { saveOrderEdit } from '../../order-editor/saveOrderEdit'
 import { storedOrderToImportDraft } from '../../order-editor/orderDraftMapping'
@@ -30,6 +31,11 @@ describe('cup name normalization', () => {
   it('pads to one editable slot per cup and ignores an unset quantity', () => {
     expect(padCupNames(['Ana'], 3)).toEqual(['Ana', '', ''])
     expect(padCupNames(['Ana'], null)).toEqual([])
+  })
+
+  it('hard-caps Array.from allocation at MAX_CUPS_PER_ORDER', () => {
+    expect(padCupNames(['Ana'], MAX_CUPS_PER_ORDER + 500).length).toBe(MAX_CUPS_PER_ORDER)
+    expect(padCupNames(undefined, 1_000_000).length).toBe(MAX_CUPS_PER_ORDER)
   })
 
   it('formats names for display', () => {

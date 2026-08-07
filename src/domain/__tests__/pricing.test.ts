@@ -6,6 +6,7 @@ import {
   formatPesos,
   HOJICHA_LEVEL_LABELS,
   MATCHA_LEVEL_LABELS,
+  MAX_CUPS_PER_ORDER,
   priceOrder,
   PricingError,
   PRODUCT_CATALOG,
@@ -182,6 +183,38 @@ describe('pricing validation', () => {
       items: [{ productSlug: 'matcha-latte', quantity: 1, modifiers: { level: 1, powder: 'yumeno' } }],
       thermalBags: [{ coveredCupCount: 2 }],
     })).toThrow(expect.objectContaining({ name: 'PricingError', code: 'THERMAL_BAGS_EXCEED_CUPS' }))
+  })
+
+  it(`accepts exactly ${100} cups (the MAX_CUPS_PER_ORDER ceiling)`, () => {
+    expect(MAX_CUPS_PER_ORDER).toBe(100)
+    const priced = priceOrder(oneItemOrder({
+      productSlug: 'matcha-latte',
+      quantity: MAX_CUPS_PER_ORDER,
+      modifiers: { level: 1, powder: 'yumeno' },
+    }))
+    expect(priced.items[0]?.quantity).toBe(100)
+    expect(priced.totals.itemsSubtotalCentavos).toBe(20000 * 100)
+  })
+
+  it('fails fast when total item quantity exceeds MAX_CUPS_PER_ORDER', () => {
+    expect(() => priceOrder(oneItemOrder({
+      productSlug: 'matcha-latte',
+      quantity: MAX_CUPS_PER_ORDER + 1,
+      modifiers: { level: 1, powder: 'yumeno' },
+    }))).toThrow(expect.objectContaining({
+      name: 'PricingError',
+      code: 'TOO_MANY_CUPS',
+      message: expect.stringMatching(/100 cups/i),
+    }))
+  })
+
+  it('fails fast when multiple lines sum past the cup ceiling', () => {
+    expect(() => priceOrder({
+      items: [
+        { productSlug: 'matcha-latte', quantity: 60, modifiers: { level: 1, powder: 'yumeno' } },
+        { productSlug: 'hojicha-latte', quantity: 41, modifiers: { level: 1, powder: 'yumeno' } },
+      ],
+    })).toThrow(expect.objectContaining({ code: 'TOO_MANY_CUPS' }))
   })
 
   it('throws PricingError for malformed centavo values', () => {

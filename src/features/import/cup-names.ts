@@ -1,5 +1,6 @@
 import type { DrinkModifiers } from '../../domain/contracts'
 import type { StoredItemModifiers } from '../../data/types'
+import { MAX_CUPS_PER_ORDER } from '../../domain/pricing'
 
 /**
  * Per-cup names ("one for Ana, one for Ben") for orders a single customer
@@ -19,6 +20,8 @@ export function normalizeCupNames(value: unknown): string[] {
     .filter((entry): entry is string => typeof entry === 'string')
     .map((entry) => entry.trim().slice(0, MAX_CUP_NAME_LENGTH))
     .filter(Boolean)
+    // Never allocate more name slots than the domain cup ceiling allows.
+    .slice(0, MAX_CUPS_PER_ORDER)
 }
 
 /**
@@ -36,10 +39,14 @@ export function withCupNames(modifiers: DrinkModifiers, cupNames: readonly strin
  * per cup. Blank slots are how "this cup is unnamed" is represented while
  * editing; `normalizeCupNames` drops them again at the storage boundary, so a
  * partially named item reopens with its names packed toward the first cups.
+ *
+ * Slot count is hard-capped at MAX_CUPS_PER_ORDER so a hostile model quantity
+ * cannot force a huge Array.from allocation in the editor.
  */
 export function padCupNames(cupNames: readonly string[] | undefined, quantity: number | null): string[] {
   const names = Array.isArray(cupNames) ? cupNames : []
-  const slots = Number.isSafeInteger(quantity) && (quantity ?? 0) > 0 ? quantity as number : 0
+  const rawSlots = Number.isSafeInteger(quantity) && (quantity ?? 0) > 0 ? quantity as number : 0
+  const slots = Math.min(rawSlots, MAX_CUPS_PER_ORDER)
   return Array.from({ length: slots }, (_, index) => names[index] ?? '')
 }
 
