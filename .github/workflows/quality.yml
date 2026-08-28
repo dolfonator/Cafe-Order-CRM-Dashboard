@@ -1,4 +1,5 @@
-# Quality gate: lint, unit tests, production build, and demo-mode Playwright smoke.
+# Quality gate: lint, unit tests, production build, gzipped initial-route
+# bundle budget, and demo-mode Playwright smoke.
 # No repository secrets required. CI never applies database migrations.
 name: quality
 
@@ -36,6 +37,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Bundle budget
+        run: npm run check:bundle
 
       - name: E2E smoke (demo mode)
         run: npm run test:e2e

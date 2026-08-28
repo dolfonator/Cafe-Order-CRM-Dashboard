@@ -31,25 +31,17 @@ npm run check
 
 This runs, fail-fast in order:
 
-1. `npm run lint` — oxlint; gate is **zero errors** (warnings are allowed today)
+1. `npm run lint` — oxlint over `src server netlify api test e2e`. Gate is **zero errors**. The script does not pass `--deny-warnings`; the tree is currently also zero warnings.
 2. `npm test` — unit/integration tests (vitest)
 3. `npm run build` — TypeScript project build + Vite production build
-
-<!-- E2E-IN-CHECK: When the E2E wave lands (Playwright config + dependency installed),
-     append `npm run test:e2e` to the `check` script so it becomes:
-     `npm run lint && npm test && npm run build && npm run test:e2e`.
-     Until then, run E2E separately only after that wave ships. -->
-
-<!-- DENY-WARNINGS: Do NOT pass `--deny-warnings` to oxlint until the 7 deferred
-     `react(only-export-components)` warnings are cleared. Until then the lint gate
-     is zero *errors* only; those 7 are optional cleanup and would break the gate
-     if denied early. -->
+4. `npm run check:bundle` — gzipped initial `/today` transfer vs the 220 KiB budget (`scripts/check-bundle.mjs`; needs `dist/` from the previous step)
+5. `npm run test:e2e` — Playwright Chromium smoke in demo mode (`playwright.config.ts` force-blanks `VITE_SUPABASE_*` so a local `.env` cannot point the suite at production)
 
 ### 3. Open (or update) the PR — `quality` must be green
 
 Push the branch and open a pull request. GitHub Actions workflow `.github/workflows/quality.yml` runs on pull requests and on pushes to `main`. Job name: **quality**.
 
-Required steps (in order): checkout → Node 20 + npm cache → `npm ci` → `npm run lint` → `npm test` → `npm run build`.
+Required steps (in order): checkout → Node 20 + npm cache → `npm ci` → Playwright Chromium install → `npm run lint` → `npm test` → `npm run build` → `npm run check:bundle` → `npm run test:e2e`.
 
 Do not merge until the **quality** check is green.
 
@@ -124,6 +116,7 @@ Frontend code that **requires** a schema change must not reach `main` before the
 | `npm run lint` | Apply database migrations |
 | `npm test` | Hold or use repository secrets |
 | `npm run build` | Deploy to production |
-| | Run Playwright E2E until a later wave enables those steps |
+| `npm run check:bundle` | |
+| Playwright E2E smoke (`npm run test:e2e`, demo mode) | |
 
 Environment variables for the live app live in **Netlify**, not in GitHub Actions.
