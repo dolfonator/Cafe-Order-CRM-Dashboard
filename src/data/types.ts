@@ -113,6 +113,13 @@ export interface StorageAdapter {
   createCustomer(customer: StoredCustomer): Promise<StoredCustomer>
   updateCustomer(id: string, patch: Partial<Omit<StoredCustomer, 'id' | 'createdAt'>>): Promise<StoredCustomer>
   deleteCustomer(id: string): Promise<void>
+  /**
+   * Optional: one-shot customer delete (orders, profile setting, then customer).
+   * SupabaseAdapter uses a Postgres RPC when present and falls back to the
+   * multi-request path. LocalAdapter omits this so the JS helper stays the
+   * observed call sequence in tests.
+   */
+  deleteCustomerCascade?(customerId: string): Promise<void>
 
   listOrders(): Promise<StoredOrder[]>
   getOrder(id: string): Promise<StoredOrder | null>

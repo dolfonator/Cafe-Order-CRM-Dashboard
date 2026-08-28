@@ -7,7 +7,7 @@
  */
 
 export type Row = Record<string, unknown>
-export type PgError = { message: string }
+export type PgError = { message: string; code?: string }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -120,6 +120,8 @@ export type FakePostgrest = {
    */
   emit: (table: string, eventType: 'INSERT' | 'UPDATE' | 'DELETE', row: Row) => Promise<void>
   reset: () => void
+  rpcCalls: Array<{ name: string; args: Record<string, unknown> }>
+  rpcHandlers: Record<string, (args: Record<string, unknown>) => { data: unknown; error: PgError | null }>
 }
 
 type RealtimeHandler = (payload: { eventType: string; new: Row; old: Row }) => unknown
@@ -132,6 +134,7 @@ type FakeChannel = {
 type FakeClient = {
   auth: { getUser: () => Promise<{ data: { user: { id: string } }; error: null }> }
   from: (table: string) => TableApi
+  rpc: (name: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: PgError | null }>
   channel: () => FakeChannel
   removeChannel: () => Promise<void>
   removeAllChannels: () => Promise<void>
@@ -168,14 +171,18 @@ export function createFakePostgrest(): FakePostgrest {
   const tables: Record<string, Row[]> = {}
   const inserts: Row[] = []
   const updates: Row[] = []
+  const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = []
+  const rpcHandlers: Record<string, (args: Record<string, unknown>) => { data: unknown; error: PgError | null }> = {}
   const realtimeHandlers: Record<string, RealtimeHandler[]> = {}
   let uuidSeq = 1
 
   function reset(): void {
     for (const key of Object.keys(tables)) delete tables[key]
     for (const key of Object.keys(realtimeHandlers)) delete realtimeHandlers[key]
+    for (const key of Object.keys(rpcHandlers)) delete rpcHandlers[key]
     inserts.length = 0
     updates.length = 0
+    rpcCalls.length = 0
     uuidSeq = 1
   }
 
@@ -533,6 +540,17 @@ export function createFakePostgrest(): FakePostgrest {
       getUser: () => Promise.resolve({ data: { user: { id: 'user-1' } }, error: null }),
     },
     from,
+    rpc: (name: string, args: Record<string, unknown> = {}) => {
+      rpcCalls.push({ name, args })
+      const handler = rpcHandlers[name]
+      if (!handler) {
+        return Promise.resolve({
+          data: null,
+          error: { message: `Could not find the function public.${name} in the schema cache`, code: 'PGRST202' },
+        })
+      }
+      return Promise.resolve(handler(args))
+    },
     channel: () => {
       const channel: FakeChannel = {
         on: (_event, filter, handler) => {
@@ -549,7 +567,7 @@ export function createFakePostgrest(): FakePostgrest {
     removeAllChannels: () => Promise.resolve(),
   }
 
-  const instance: FakePostgrest = { client, tables, inserts, updates, emit, reset }
+  const instance: FakePostgrest = { client, tables, inserts, updates, emit, reset, rpcCalls, rpcHandlers }
   active = instance
   return instance
 }

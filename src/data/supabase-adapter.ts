@@ -10,6 +10,11 @@ function bool(row: Row, key: string): boolean { return Boolean(row[key]) }
 function array<T>(value: unknown): T[] { return Array.isArray(value) ? value as T[] : [] }
 function asRow(value: unknown): Row { return value as Row }
 
+function isMissingRpc(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST202' || /could not find the function/i.test(error.message ?? '')
+}
+
 function fromProduct(row: Row): StoredProduct { return { id: string(row, 'id'), name: string(row, 'name'), priceCentavos: number(row, 'price_centavos'), active: bool(row, 'active'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') } }
 function toProduct(product: StoredProduct): Row { return { id: product.id, name: product.name, price_centavos: product.priceCentavos, active: product.active, created_at: product.createdAt, updated_at: product.updatedAt } }
 function fromCustomer(row: Row): StoredCustomer { return { id: string(row, 'id'), name: string(row, 'name'), phone: nullableString(row, 'phone'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') } }
@@ -75,6 +80,16 @@ export class SupabaseAdapter implements StorageAdapter {
     if (error) throw new Error(`Supabase ${table} delete failed: ${error.message}`)
   }
 
+  private async rpc<T>(name: string, args: Record<string, unknown>): Promise<
+    { ok: true; data: T } | { ok: false; missing: true } | { ok: false; missing: false; message: string }
+  > {
+    await this.authenticated()
+    const { data, error } = await this.client.rpc(name, args)
+    if (!error) return { ok: true, data: data as T }
+    if (isMissingRpc(error)) return { ok: false, missing: true }
+    return { ok: false, missing: false, message: error.message }
+  }
+
   async listProducts(): Promise<StoredProduct[]> { return (await this.rows('products')).map(fromProduct) }
   async getProduct(id: string): Promise<StoredProduct | null> { const row = await this.row('products', id); return row ? fromProduct(row) : null }
   async createProduct(product: StoredProduct): Promise<StoredProduct> { return fromProduct(await this.insert('products', toProduct(product))) }
@@ -93,6 +108,17 @@ export class SupabaseAdapter implements StorageAdapter {
   async updateCustomer(id: string, patch: Partial<Omit<StoredCustomer, 'id' | 'createdAt'>>): Promise<StoredCustomer> { const current = await this.getCustomer(id); if (!current) throw new Error(`customers record ${id} does not exist.`); return fromCustomer(await this.replace('customers', id, toCustomer({ ...current, ...patch }))) }
   deleteCustomer = (id: string): Promise<void> => this.erase('customers', id)
 
+  async deleteCustomerCascade(customerId: string): Promise<void> {
+    const result = await this.rpc<null>('delete_customer_cascade', { p_customer_id: customerId })
+    if (result.ok) return
+    if (!result.missing) throw new Error(`Supabase delete_customer_cascade failed: ${result.message}`)
+    const orders = await this.listOrders()
+    for (const order of orders.filter((order) => order.customerId === customerId)) await this.deleteOrder(order.id)
+    const profile = await this.getSetting(`customer:${customerId}:profile`)
+    if (profile) await this.deleteSetting(profile.key)
+    await this.deleteCustomer(customerId)
+  }
+
   async listOrderItems(orderId?: string): Promise<StoredOrderItem[]> { const items = (await this.rows('order_items')).map(fromItem); return orderId ? items.filter((item) => item.orderId === orderId) : items }
   async getOrderItem(id: string): Promise<StoredOrderItem | null> { const row = await this.row('order_items', id); return row ? fromItem(row) : null }
   async createOrderItem(item: StoredOrderItem): Promise<StoredOrderItem> { return fromItem(await this.insert('order_items', toItem(item))) }
@@ -105,6 +131,9 @@ export class SupabaseAdapter implements StorageAdapter {
   }
   async getOrder(id: string): Promise<StoredOrder | null> { const row = await this.row('orders', id); return row ? fromOrder(row, await this.listOrderItems(id)) : null }
   async createOrder(order: StoredOrder): Promise<StoredOrder> {
+    const result = await this.rpc<Row>('create_order_with_items', { p_order: toOrder(order), p_items: order.items.map(toItem) })
+    if (result.ok) return fromOrder(asRow(result.data), await this.listOrderItems(order.id))
+    if (!result.missing) throw new Error(`Supabase create_order_with_items failed: ${result.message}`)
     const created = fromOrder(await this.insert('orders', toOrder(order)))
     const items = await Promise.all(order.items.map((item) => this.createOrderItem(item)))
     return { ...created, items }
@@ -113,6 +142,11 @@ export class SupabaseAdapter implements StorageAdapter {
     const current = await this.getOrder(id)
     if (!current) throw new Error(`orders record ${id} does not exist.`)
     const next = { ...current, ...patch }
+    if (patch.items) {
+      const result = await this.rpc<Row>('replace_order_items', { p_order_id: id, p_order: toOrder(next), p_items: patch.items.map(toItem) })
+      if (result.ok) return fromOrder(asRow(result.data), await this.listOrderItems(id))
+      if (!result.missing) throw new Error(`Supabase replace_order_items failed: ${result.message}`)
+    }
     const updated = fromOrder(await this.replace('orders', id, toOrder(next)))
     if (patch.items) {
       for (const item of current.items) await this.deleteOrderItem(item.id)

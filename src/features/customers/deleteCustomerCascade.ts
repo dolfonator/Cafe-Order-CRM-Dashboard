@@ -15,11 +15,16 @@ import { customerProfileKey } from './customer-profile'
  * and only then deletes the customer row, so the ordering is FK-safe on
  * Supabase and behaves identically against LocalAdapter.
  *
- * These steps are sequential, not a single database transaction. A partial
- * failure after orders/profile deletion but before the customer row is removed
- * can leave an incomplete state until the owner retries.
+ * These steps are sequential on LocalAdapter, not a single database
+ * transaction. SupabaseAdapter.deleteCustomerCascade uses a Postgres RPC when
+ * the function exists, and falls back to this same loop until the
+ * maintenance-window migration is applied.
  */
 export async function deleteCustomerCascade(adapter: StorageAdapter, customerId: string): Promise<void> {
+  if (adapter.deleteCustomerCascade) {
+    await adapter.deleteCustomerCascade(customerId)
+    return
+  }
   const orders = await adapter.listOrders()
   const customerOrders = orders.filter((order) => order.customerId === customerId)
   for (const order of customerOrders) await adapter.deleteOrder(order.id)

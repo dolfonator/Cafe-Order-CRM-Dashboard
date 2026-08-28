@@ -67,3 +67,22 @@ where not (
   or (o.status in ('paid', 'delivered') and o.payment_received)
   or o.status = 'cancelled'
 );
+
+-- 6) Owner-bound RLS and aggregate RPCs (20260828010000)
+--    Combined so the SQL editor's last-result-only display is enough.
+select
+  public.dashboard_owner_uid() is not null as owner_uid_present,
+  (
+    select count(*)::bigint
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('dashboard_owner_uid', 'create_order_with_items', 'replace_order_items', 'delete_customer_cascade')
+  ) as owner_rpc_function_count,
+  (
+    select count(*)::bigint
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('products', 'modifier_groups', 'customers', 'orders', 'order_items', 'settings')
+      and qual = 'true'
+  ) as open_authenticated_policies;

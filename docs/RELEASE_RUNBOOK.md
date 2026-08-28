@@ -63,6 +63,8 @@ Paste the single-row result (order count, order-item count, money sums, counts-b
 
 Apply the pending file under `supabase/migrations/` **by hand in the Supabase SQL Editor**, inside **its own transaction** (the migration file should begin with `begin;` and end with `commit;`, or wrap the body yourself).
 
+The next unapplied production migration is `supabase/migrations/20260828010000_owner_rls_and_aggregate_rpcs.sql` (owner-bound RLS + aggregate RPCs). Confirm `select public.dashboard_owner_uid();` returns Angela’s uuid after apply. The shipped app falls back to the old multi-request path until this file has been applied, so production keeps working either way.
+
 - Never apply migrations from CI.
 - Never apply migrations from a script in this repository.
 - If anything fails before `commit`, roll back the transaction (see Rollback below).

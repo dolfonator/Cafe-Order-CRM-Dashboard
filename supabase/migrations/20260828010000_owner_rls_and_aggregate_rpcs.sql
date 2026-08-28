@@ -1,158 +1,11 @@
-create extension if not exists pgcrypto;
+-- Bind RLS to the dashboard owner's auth.uid() and add aggregate RPCs so
+-- order create/edit and customer cascade run in one Postgres transaction.
+--
+-- This migration is applied manually via the Supabase SQL Editor in a
+-- maintenance window — never by CI. It does not change order/item/customer
+-- row counts or money totals.
 
-create type public.order_status as enum (
-  'new',
-  'paid',
-  'delivered',
-  'cancelled'
-);
-
-create table public.products (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  price_centavos integer not null check (price_centavos >= 0),
-  active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
--- DORMANT TABLE — expected to be empty in production; nothing reads or writes it.
--- The app's modifiers are a fixed union in src/domain/contracts.ts, assigned per
--- product in src/domain/catalog.ts; per-cup selections live in order_items.modifiers
--- jsonb. Owner-editable catalog data is persisted as JSON in `settings` (see
--- getRuntimeCatalog()) — extend that for editable modifiers, not this table.
--- Rows appearing here are a signal that something unexpected wrote to it.
--- Kept rather than dropped because it is inert: no rows, no FK references, no cost.
-create table public.modifier_groups (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  applies_to_product_ids uuid[] not null default '{}',
-  options jsonb not null default '[]'::jsonb,
-  allows_multiple boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.customers (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  phone text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.orders (
-  id uuid primary key default gen_random_uuid(),
-  customer_id uuid not null references public.customers(id),
-  status public.order_status not null default 'new',
-  delivery_date date,
-  payment_received boolean not null default false,
-  constraint orders_status_payment_consistent check (
-    (status = 'new' and not payment_received)
-    or (status in ('paid', 'delivered') and payment_received)
-    or status = 'cancelled'
-  ),
-  subtotal_centavos integer not null check (subtotal_centavos >= 0),
-  delivery_fee_centavos integer not null default 0 check (delivery_fee_centavos >= 0),
-  total_centavos integer not null check (total_centavos >= 0),
-  raw_source text not null,
-  address_snapshot text,
-  notes text,
-  route_position integer,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  paid_at timestamptz,
-  delivered_at timestamptz,
-  constraint orders_lifecycle_timestamps_consistent check (
-    (status = 'new' and paid_at is null and delivered_at is null)
-    or (status = 'paid' and paid_at is not null and delivered_at is null)
-    or (status = 'delivered' and paid_at is not null and delivered_at is not null and paid_at <= delivered_at)
-    or (status = 'cancelled' and delivered_at is null)
-  )
-);
-
-create table public.order_items (
-  id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references public.orders(id) on delete cascade,
-  product_id uuid not null references public.products(id),
-  product_name_snapshot text not null,
-  quantity integer not null check (quantity > 0),
-  modifiers jsonb not null default '{}'::jsonb,
-  unit_price_centavos integer not null check (unit_price_centavos >= 0),
-  line_total_centavos integer not null check (line_total_centavos >= 0),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.settings (
-  id uuid primary key default gen_random_uuid(),
-  key text not null unique,
-  value jsonb not null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create function public.set_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
-create function public.set_order_lifecycle_timestamps()
-returns trigger
-language plpgsql
-as $$
-begin
-  if tg_op = 'INSERT' then
-    if new.status = 'new' then
-      new.paid_at := null;
-      new.delivered_at := null;
-    elsif new.status = 'paid' then
-      new.paid_at := coalesce(new.paid_at, now());
-      new.delivered_at := null;
-    elsif new.status = 'delivered' then
-      new.paid_at := coalesce(new.paid_at, now());
-      new.delivered_at := coalesce(new.delivered_at, now());
-    elsif new.status = 'cancelled' then
-      new.delivered_at := null;
-    end if;
-  elsif tg_op = 'UPDATE' then
-    if old.status is distinct from 'paid' and new.status = 'paid' then
-      new.paid_at := coalesce(old.paid_at, now());
-      new.delivered_at := null;
-    elsif old.status is distinct from 'delivered' and new.status = 'delivered' then
-      new.paid_at := coalesce(old.paid_at, now());
-      new.delivered_at := coalesce(old.delivered_at, now());
-    elsif old.status is distinct from 'cancelled' and new.status = 'cancelled' then
-      new.paid_at := old.paid_at;
-      new.delivered_at := null;
-    else
-      new.paid_at := old.paid_at;
-      new.delivered_at := old.delivered_at;
-    end if;
-  end if;
-  return new;
-end;
-$$;
-
-create trigger products_set_updated_at before update on public.products for each row execute function public.set_updated_at();
-create trigger modifier_groups_set_updated_at before update on public.modifier_groups for each row execute function public.set_updated_at();
-create trigger customers_set_updated_at before update on public.customers for each row execute function public.set_updated_at();
-create trigger orders_set_updated_at before update on public.orders for each row execute function public.set_updated_at();
-create trigger orders_set_lifecycle_timestamps before insert or update on public.orders for each row execute function public.set_order_lifecycle_timestamps();
-create trigger order_items_set_updated_at before update on public.order_items for each row execute function public.set_updated_at();
-create trigger settings_set_updated_at before update on public.settings for each row execute function public.set_updated_at();
-
-alter table public.products enable row level security;
-alter table public.modifier_groups enable row level security;
-alter table public.customers enable row level security;
-alter table public.orders enable row level security;
-alter table public.order_items enable row level security;
-alter table public.settings enable row level security;
+begin;
 
 create or replace function public.dashboard_owner_uid()
 returns uuid
@@ -169,6 +22,27 @@ $$;
 
 revoke all on function public.dashboard_owner_uid() from public;
 grant execute on function public.dashboard_owner_uid() to authenticated;
+
+do $$
+begin
+  if public.dashboard_owner_uid() is null then
+    raise exception 'dashboard_owner_uid() is null — angela@madebyangela.local is missing from auth.users';
+  end if;
+end $$;
+
+do $$
+declare
+  rec record;
+begin
+  for rec in
+    select policyname, tablename
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('products', 'modifier_groups', 'customers', 'orders', 'order_items', 'settings')
+  loop
+    execute format('drop policy if exists %I on public.%I', rec.policyname, rec.tablename);
+  end loop;
+end $$;
 
 create policy "authenticated select products" on public.products for select to authenticated using (auth.uid() = public.dashboard_owner_uid());
 create policy "authenticated insert products" on public.products for insert to authenticated with check (auth.uid() = public.dashboard_owner_uid());
@@ -323,9 +197,26 @@ grant execute on function public.create_order_with_items(jsonb, jsonb) to authen
 grant execute on function public.replace_order_items(uuid, jsonb, jsonb) to authenticated;
 grant execute on function public.delete_customer_cascade(uuid) to authenticated;
 
-alter publication supabase_realtime add table public.products;
-alter publication supabase_realtime add table public.modifier_groups;
-alter publication supabase_realtime add table public.customers;
-alter publication supabase_realtime add table public.orders;
-alter publication supabase_realtime add table public.order_items;
-alter publication supabase_realtime add table public.settings;
+do $$
+begin
+  if (
+    select count(*) from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('dashboard_owner_uid', 'create_order_with_items', 'replace_order_items', 'delete_customer_cascade')
+  ) <> 4 then
+    raise exception 'Expected four public aggregate/owner functions after migration';
+  end if;
+
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('products', 'modifier_groups', 'customers', 'orders', 'order_items', 'settings')
+      and qual = 'true'
+  ) then
+    raise exception 'A public table policy still uses using (true)';
+  end if;
+end $$;
+
+commit;
