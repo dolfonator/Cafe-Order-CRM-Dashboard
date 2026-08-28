@@ -36,7 +36,6 @@ export async function saveCustomerProfile(
 ): Promise<Setting> {
   const now = new Date().toISOString()
   return adapter.setSetting({
-    id: crypto.randomUUID(),
     key: customerProfileKey(customerId),
     value: profile,
     createdAt: now,

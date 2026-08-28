@@ -197,9 +197,9 @@ export class LocalAdapter implements StorageAdapter {
 
   listSettings = (): Promise<Setting[]> => this.values('settings')
   async getSetting(key: string): Promise<Setting | null> { return (await this.listSettings()).find((setting) => setting.key === key) ?? null }
-  async setSetting(setting: Setting): Promise<Setting> {
+  async setSetting(setting: Omit<Setting, 'id'> & { id?: string }): Promise<Setting> {
     const current = await this.getSetting(setting.key)
-    return this.put('settings', { ...setting, id: current?.id ?? setting.id, updatedAt: timestamp() }, true, current ? 'update' : 'insert')
+    return this.put('settings', { ...setting, id: current?.id ?? setting.id ?? crypto.randomUUID(), updatedAt: timestamp() }, true, current ? 'update' : 'insert')
   }
   async deleteSetting(key: string): Promise<void> { const setting = await this.getSetting(key); if (setting) await this.remove('settings', setting.id) }
 

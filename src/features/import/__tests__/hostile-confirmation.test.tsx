@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LocalAdapter, resetLocalAdapterMemoryForTests } from '../../../data/local-adapter'
@@ -27,8 +27,13 @@ async function renderWorkspace() {
 
 async function pasteAndParse(user: ReturnType<typeof userEvent.setup>, value: string) {
   const input = screen.getByRole('textbox', { name: 'Order text or JSON' })
-  fireEvent.change(input, { target: { value } })
+  await act(async () => {
+    fireEvent.change(input, { target: { value } })
+  })
   await user.click(screen.getByRole('button', { name: 'Create editable drafts' }))
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: 'Create editable drafts' })).toBeEnabled()
+  })
 }
 
 afterEach(() => {
@@ -122,11 +127,9 @@ describe('T6 hostile import transport, rendering, and confirmation audit', () =>
     const before = await adapter.listOrders()
     await pasteAndParse(user, '{"customer_name":"Double Dana","items":[{"product_slug":"matcha-latte","quantity":1}],"address":"Makati"}')
     const confirm = await screen.findByRole('button', { name: 'Confirm order' })
-
     fireEvent.click(confirm)
     fireEvent.click(confirm)
-
-    await waitFor(async () => expect((await adapter.listOrders()).length).toBe(before.length + 1))
+    expect(await screen.findByRole('status')).toHaveTextContent(/was created as new/)
     expect((await adapter.listOrders()).length).toBe(before.length + 1)
     await adapter.close()
   })
@@ -139,7 +142,7 @@ describe('T6 hostile import transport, rendering, and confirmation audit', () =>
 
     expect(await screen.findAllByText('Editable order draft')).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Confirm order' }))
-    await waitFor(async () => expect((await adapter.listOrders()).length).toBe(before.length + 1))
+    expect(await screen.findByRole('status')).toHaveTextContent(/was created as new/)
     expect((await adapter.listOrders()).length).toBe(before.length + 1)
     await adapter.close()
   })

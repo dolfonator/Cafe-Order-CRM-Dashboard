@@ -30,7 +30,7 @@ function fromSetting(row: Row): Setting { return { id: string(row, 'id'), key: s
 function toSetting(setting: Setting): Row { return { id: setting.id, key: setting.key, value: setting.value, created_at: setting.createdAt, updated_at: setting.updatedAt } }
 // settings.id is a uuid column with a gen_random_uuid() default. Callers key settings by `key`, not by id,
 // so a new row lets Postgres mint the id rather than risking a non-uuid client id (22P02 on insert).
-function toNewSetting(setting: Setting): Row { return { key: setting.key, value: setting.value, created_at: setting.createdAt, updated_at: setting.updatedAt } }
+function toNewSetting(setting: Omit<Setting, 'id'> & { id?: string }): Row { return { key: setting.key, value: setting.value, created_at: setting.createdAt, updated_at: setting.updatedAt } }
 
 export class SupabaseAdapter implements StorageAdapter {
   private readonly client: SupabaseClient
@@ -124,7 +124,7 @@ export class SupabaseAdapter implements StorageAdapter {
 
   async listSettings(): Promise<Setting[]> { return (await this.rows('settings')).map(fromSetting) }
   async getSetting(key: string): Promise<Setting | null> { return (await this.listSettings()).find((setting) => setting.key === key) ?? null }
-  async setSetting(setting: Setting): Promise<Setting> { const current = await this.getSetting(setting.key); return fromSetting(current ? await this.replace('settings', current.id, toSetting({ ...setting, id: current.id })) : await this.insert('settings', toNewSetting(setting))) }
+  async setSetting(setting: Omit<Setting, 'id'> & { id?: string }): Promise<Setting> { const current = await this.getSetting(setting.key); return fromSetting(current ? await this.replace('settings', current.id, toSetting({ ...setting, id: current.id })) : await this.insert('settings', toNewSetting(setting))) }
   async deleteSetting(key: string): Promise<void> { const setting = await this.getSetting(key); if (setting) await this.erase('settings', setting.id) }
 
   subscribe(listener: (change: StorageChange) => void): StorageUnsubscribe {

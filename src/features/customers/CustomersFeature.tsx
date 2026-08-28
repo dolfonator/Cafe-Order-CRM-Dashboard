@@ -6,6 +6,7 @@ import { OrderEditorModal } from '../order-editor/OrderEditorModal'
 import { storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
 import { relevantDeliveryDate } from '../today/delivery-dates'
 import { formatCupNames } from '../import/cup-names'
+import { formatPhp } from '../orders/order-display'
 import { lifecycleTimestampLines } from '../orders/order-timestamps'
 import { loadCustomerProfile, saveCustomerProfile, type CustomerProfile } from './customer-profile'
 import { getCustomerSummaries, type CustomerSummary } from './customer-stats'
@@ -17,10 +18,6 @@ function formatDate(order: StoredOrder | null): string {
   if (!order?.deliveryDate) return 'No delivery date'
   return new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeZone: 'Asia/Manila' })
     .format(new Date(`${order.deliveryDate}T12:00:00+08:00`))
-}
-
-function formatCurrency(centavos: number): string {
-  return `₱${(centavos / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function statusLabel(status: StoredOrder['status']): string {
@@ -222,7 +219,7 @@ function CustomerDetail({ adapter, summary, orders, customers }: { adapter: Stor
               <article key={order.id} className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="font-bold">{formatDate(order)}</p><p className="mt-1 text-sm capitalize text-[#4A5365]">{statusLabel(order.status)}</p></div>
-                  <p className="shrink-0 font-black text-[#4F74C8]">{formatCurrency(order.totalCentavos)}</p>
+                  <p className="shrink-0 font-black text-[#4F74C8]">{formatPhp(order.totalCentavos)}</p>
                 </div>
                 <ul className="mt-3 space-y-1 text-sm text-[#4A5365]">
                   {order.items.map((item) => <li key={item.id}>{item.quantity}× {item.productName}{formatCupNames(item.modifiers.cupNames) && <span className="text-[#36579E]"> · {formatCupNames(item.modifiers.cupNames)}</span>}</li>)}

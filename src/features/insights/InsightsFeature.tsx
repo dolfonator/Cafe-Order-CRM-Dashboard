@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { StorageAdapter } from '../../data/types'
+import { formatPhp } from '../orders/order-display'
 import { deriveBusinessInsights, type PeriodTotal } from './insight-stats'
-
-function formatCurrency(centavos: number): string {
-  return `₱${(centavos / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 function PeriodBars({ title, values }: { title: string; values: readonly PeriodTotal[] }) {
   const maxCups = Math.max(1, ...values.map((value) => value.cups))
@@ -14,8 +11,8 @@ function PeriodBars({ title, values }: { title: string; values: readonly PeriodT
       <div className="mt-4 space-y-4">
         {values.map((value) => (
           <div key={value.period}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm"><span className="font-bold">{value.period}</span><span className="text-[#4A5365]">{value.cups} cups · {formatCurrency(value.revenueCentavos)}</span></div>
-            <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#FBF3D5]" aria-label={`${value.period}: ${value.cups} cups and ${formatCurrency(value.revenueCentavos)}`}><div className="h-full rounded-full bg-[#4F74C8] transition-[width] duration-500 ease-out" style={{ width: `${Math.max(8, (value.cups / maxCups) * 100)}%` }} /></div>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm"><span className="font-bold">{value.period}</span><span className="text-[#4A5365]">{value.cups} cups · {formatPhp(value.revenueCentavos)}</span></div>
+            <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#FBF3D5]" aria-label={`${value.period}: ${value.cups} cups and ${formatPhp(value.revenueCentavos)}`}><div className="h-full rounded-full bg-[#4F74C8] transition-[width] duration-500 ease-out" style={{ width: `${Math.max(8, (value.cups / maxCups) * 100)}%` }} /></div>
           </div>
         ))}
         {values.length === 0 && <p className="text-sm text-[#4A5365]">No delivered-date data yet.</p>}
@@ -53,7 +50,7 @@ export function InsightsFeature({ adapter }: { adapter: StorageAdapter }) {
       </header>
       <div className="mt-5 grid grid-cols-2 gap-3">
         <article className="rounded-2xl bg-[#4F74C8] p-4 text-white shadow-sm"><p className="text-sm font-semibold text-white/75">Non-cancelled cups</p><p className="mt-2 text-3xl font-black">{insights.cups}</p></article>
-        <article className="rounded-2xl border border-[#4F74C8]/25 bg-white p-4 shadow-sm"><p className="text-sm font-semibold text-[#4A5365]">Recognized revenue</p><p className="mt-2 text-2xl font-black text-[#20242F]">{formatCurrency(insights.recognizedRevenueCentavos)}</p></article>
+        <article className="rounded-2xl border border-[#4F74C8]/25 bg-white p-4 shadow-sm"><p className="text-sm font-semibold text-[#4A5365]">Recognized revenue</p><p className="mt-2 text-2xl font-black text-[#20242F]">{formatPhp(insights.recognizedRevenueCentavos)}</p></article>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <article className="rounded-2xl border border-[#4F74C8]/20 bg-white p-4 shadow-sm"><p className="text-sm font-semibold text-[#4A5365]">Repeat rate</p><p className="mt-2 text-2xl font-black text-[#4F74C8]">{Math.round(insights.repeatRate * 100)}%</p><p className="mt-1 text-xs text-[#4A5365]">Customers with 2+ orders</p></article>

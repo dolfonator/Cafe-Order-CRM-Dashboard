@@ -1,16 +1,14 @@
 import { Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
+import type { StorageAdapter, StoredOrder } from '../../data/types'
 import { relevantDeliveryDate } from '../today/delivery-dates'
 import { OrderEditorModal } from '../order-editor/OrderEditorModal'
 import { blankImportDraft, storedOrderToImportDraft } from '../order-editor/orderDraftMapping'
 import { OrderCard } from './OrderCard'
-import { canAdvance, canCancel, nextStatus, operationalStatuses, statusLabels } from './orderLifecycle'
+import { customerFor } from './order-display'
+import { operationalStatuses, statusLabels } from './orderLifecycle'
+import { useOrderActions } from './useOrderActions'
 import { useOrdersData } from './useOrdersData'
-
-function customerFor(customers: StoredCustomer[], order: StoredOrder): StoredCustomer | undefined {
-  return customers.find((customer) => customer.id === order.customerId)
-}
 
 type OrdersHistoryProps = { adapter?: StorageAdapter }
 
@@ -21,8 +19,8 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'all' | (typeof operationalStatuses)[number]>('all')
   const [deliveryDate, setDeliveryDate] = useState('')
-  const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
   const [editorState, setEditorState] = useState<EditorState | null>(null)
+  const { busyOrderId, advance, cancel, deleteOrder } = useOrderActions(adapter)
 
   const visibleOrders = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -38,37 +36,6 @@ export function OrdersHistory({ adapter: providedAdapter }: OrdersHistoryProps) 
       })
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
   }, [customers, deliveryDate, orders, query, status])
-
-  const update = async (order: StoredOrder, patch: Parameters<StorageAdapter['updateOrder']>[1]) => {
-    if (!adapter) return
-    setBusyOrderId(order.id)
-    try {
-      await adapter.updateOrder(order.id, patch)
-    } finally {
-      setBusyOrderId(null)
-    }
-  }
-
-  const advance = async (order: StoredOrder) => {
-    if (!canAdvance(order)) return
-    const next = nextStatus(order.status)
-    if (!next) return
-    await update(order, { status: next, ...(next === 'paid' ? { paymentReceived: true } : {}) })
-  }
-
-  const cancel = async (order: StoredOrder) => {
-    if (canCancel(order.status)) await update(order, { status: 'cancelled' })
-  }
-
-  const deleteOrder = async (order: StoredOrder) => {
-    if (!adapter) return
-    setBusyOrderId(order.id)
-    try {
-      await adapter.deleteOrder(order.id)
-    } finally {
-      setBusyOrderId(null)
-    }
-  }
 
   return (
     <section className="min-w-0">

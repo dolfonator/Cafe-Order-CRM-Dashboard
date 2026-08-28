@@ -128,7 +128,7 @@ export interface StorageAdapter {
 
   listSettings(): Promise<Setting[]>
   getSetting(key: string): Promise<Setting | null>
-  setSetting(setting: Setting): Promise<Setting>
+  setSetting(setting: Omit<Setting, 'id'> & { id?: string }): Promise<Setting>
   deleteSetting(key: string): Promise<void>
 
   subscribe(listener: (change: StorageChange) => void): StorageUnsubscribe
