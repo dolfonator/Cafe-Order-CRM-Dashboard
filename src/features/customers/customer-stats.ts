@@ -10,6 +10,8 @@ export type CustomerSummary = {
 
 type DrinkTally = { quantity: number; lastOrder: StoredOrder }
 
+export type DrinkQuantity = { name: string; quantity: number }
+
 export function isNonCancelled(order: StoredOrder): boolean {
   return order.status !== 'cancelled'
 }
@@ -20,9 +22,10 @@ export function compareOrderRecency(left: StoredOrder, right: StoredOrder): numb
   return left.createdAt.localeCompare(right.createdAt)
 }
 
-export function getFavoriteDrink(orders: readonly StoredOrder[]): string | null {
+/** Tallies product quantities across orders; sorted by quantity desc, then recency, then name. */
+export function getSortedDrinkTallies(orders: readonly StoredOrder[]): DrinkQuantity[] {
   const drinks = new Map<string, DrinkTally>()
-  for (const order of orders.filter(isNonCancelled)) {
+  for (const order of orders) {
     for (const item of order.items) {
       const current = drinks.get(item.productName)
       if (!current) {
@@ -39,7 +42,12 @@ export function getFavoriteDrink(orders: readonly StoredOrder[]): string | null 
       if (left.quantity !== right.quantity) return right.quantity - left.quantity
       const recency = compareOrderRecency(right.lastOrder, left.lastOrder)
       return recency !== 0 ? recency : leftName.localeCompare(rightName)
-    })[0]?.[0] ?? null
+    })
+    .map(([name, tally]) => ({ name, quantity: tally.quantity }))
+}
+
+export function getFavoriteDrink(orders: readonly StoredOrder[]): string | null {
+  return getSortedDrinkTallies(orders.filter(isNonCancelled))[0]?.name ?? null
 }
 
 export function getCustomerSummaries(

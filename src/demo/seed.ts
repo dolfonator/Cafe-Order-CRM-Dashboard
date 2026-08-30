@@ -1,4 +1,4 @@
-import type { ModifierGroup, Setting, StoredCustomer, StoredOrder, StoredOrderItem, StoredProduct } from '../data/types'
+import type { Setting, StoredCustomer, StoredModifierGroup, StoredOrder, StoredOrderItem, StoredProduct } from '../data/types'
 
 const at = '2026-07-16T08:00:00.000Z'
 
@@ -14,7 +14,7 @@ export const demoProducts: StoredProduct[] = [
 const matchaIds = demoProducts.slice(0, 3).map((product) => product.id)
 const hojichaIds = demoProducts.slice(3).map((product) => product.id)
 
-export const demoModifierGroups: ModifierGroup[] = [
+export const demoModifierGroups: StoredModifierGroup[] = [
   { id: '20000000-0000-4000-8000-000000000001', name: 'Matcha level', appliesToProductIds: matchaIds, options: [{ id: 'l1', label: 'L1 · 5g', priceCentavos: 0, default: true }, { id: 'l2', label: 'L2', priceCentavos: 2500 }, { id: 'l3', label: 'L3', priceCentavos: 5000 }], allowsMultiple: false, createdAt: at, updatedAt: at },
   { id: '20000000-0000-4000-8000-000000000002', name: 'Hojicha level', appliesToProductIds: hojichaIds, options: [{ id: 'l1', label: 'L1 · 6g', priceCentavos: 0, default: true }, { id: 'l2', label: 'L2', priceCentavos: 2000 }, { id: 'l3', label: 'L3', priceCentavos: 4000 }], allowsMultiple: false, createdAt: at, updatedAt: at },
   { id: '20000000-0000-4000-8000-000000000003', name: 'Powder', appliesToProductIds: demoProducts.map((product) => product.id), options: [{ id: 'yumeno', label: 'Yumeno', priceCentavos: 0, default: true }, { id: 'mk-isuzu', label: 'MK Isuzu', priceCentavos: 6000 }], allowsMultiple: false, createdAt: at, updatedAt: at },

@@ -6,7 +6,6 @@ import type {
   Powder,
   MenuProduct,
   ProductSlug,
-  Sweetness,
 } from './contracts'
 
 export const POWDER_UPCHARGES: Readonly<Record<Powder, MoneyCentavos>> = {
@@ -41,8 +40,6 @@ export const HOJICHA_LEVEL_LABELS: Readonly<Record<HojichaLevel, string>> = {
   2: 'Level 2',
   3: 'Level 3',
 }
-
-export const SWEETNESS_OPTIONS: readonly Sweetness[] = ['none', 'light', 'regular', 'extra']
 
 export const THERMAL_BAG_PRICES: Readonly<Record<1 | 2 | 3 | 4, MoneyCentavos>> = {
   1: 2500,

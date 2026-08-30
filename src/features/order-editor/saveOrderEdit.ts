@@ -1,14 +1,8 @@
-import { getRuntimeCatalog } from '../../domain/catalog'
-import { priceOrder } from '../../domain/pricing'
-import type { ProductSlug } from '../../domain/contracts'
-import type { StorageAdapter, StoredOrder, StoredOrderItem, StoredProduct } from '../../data/types'
+import type { StorageAdapter, StoredOrder } from '../../data/types'
 import { validateDraft } from '../import/parser'
-import { withCupNames } from '../import/cup-names'
 import { ensureCatalogProducts } from '../../data/ensure-catalog-products'
+import { priceDraftItems } from '../import/priceDraftItems'
 import type { ImportDraft } from '../import/types'
-
-function id(): string { return crypto.randomUUID() }
-function now(): string { return new Date().toISOString() }
 
 /**
  * Re-prices an edited draft through the pricing engine and persists it onto
@@ -36,25 +30,13 @@ export async function saveOrderEdit(adapter: StorageAdapter, order: StoredOrder,
   }
 
   const productByName = await ensureCatalogProducts(adapter)
-
-  const priced = priceOrder({
-    items: draft.items.map((item) => ({
-      productSlug: item.productSlug! as ProductSlug,
-      quantity: item.quantity!,
-      modifiers: { level: item.level!, powder: item.powder!, ...(item.sweetness ? { sweetness: item.sweetness } : {}) },
-    })),
-    thermalBags: draft.thermalBags.map((bag) => ({ coveredCupCount: bag.coveredCupCount! })),
-  })
-
-  const timestamp = now()
-  const newItems: StoredOrderItem[] = priced.items.map((item, index) => {
-    const product: StoredProduct | undefined = productByName.get(getRuntimeCatalog()[item.productSlug].name)
-    if (!product) throw new Error(`Storage is missing the catalog product ${item.productName}`)
-    return {
-      id: id(), orderId: order.id, productId: product.id, productName: item.productName, quantity: item.quantity,
-      modifiers: withCupNames(item.modifiers, draft.items[index]?.cupNames), unitPriceCentavos: item.unitPriceCentavos, lineTotalCentavos: item.lineTotalCentavos,
-      createdAt: timestamp, updatedAt: timestamp,
-    }
+  const timestamp = new Date().toISOString()
+  const { priced, items: newItems } = priceDraftItems({
+    items: draft.items,
+    thermalBags: draft.thermalBags,
+    productByName,
+    orderId: order.id,
+    timestamp,
   })
 
   const existingItems = await adapter.listOrderItems(order.id)

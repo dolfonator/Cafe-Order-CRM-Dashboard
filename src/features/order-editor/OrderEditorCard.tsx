@@ -13,11 +13,11 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-bold uppercase tracking-[0.12em] text-[#4A5365]">{children}</label>
 }
 
-export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`mt-1 min-h-11 w-full rounded-xl border border-[#4F74C8]/25 bg-white px-3 text-sm text-[#20242f] outline-none transition-colors focus:border-[#4F74C8] focus:ring-2 focus:ring-[#4F74C8]/20 ${props.className ?? ''}`} />
 }
 
-export function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`mt-1 min-h-11 w-full rounded-xl border border-[#4F74C8]/25 bg-white px-3 text-sm text-[#20242f] outline-none transition-colors focus:border-[#4F74C8] focus:ring-2 focus:ring-[#4F74C8]/20 ${props.className ?? ''}`} />
 }
 

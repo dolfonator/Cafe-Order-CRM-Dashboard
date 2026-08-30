@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createStorageAdapter } from '../../data/adapter'
+import { useStorageAdapter } from '../../data/StorageProvider'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
 
 export type OrdersData = {
@@ -12,8 +13,9 @@ export type OrdersData = {
 
 /** Loads a single live data snapshot and refreshes it after relevant adapter events. */
 export function useOrdersData(providedAdapter?: StorageAdapter): OrdersData {
+  const { adapter: contextAdapter, fromProvider, loading: contextLoading, error: contextError } = useStorageAdapter()
   const [state, setState] = useState<OrdersData>({
-    adapter: providedAdapter ?? null,
+    adapter: providedAdapter ?? contextAdapter ?? null,
     customers: [],
     orders: [],
     loading: true,
@@ -27,13 +29,27 @@ export function useOrdersData(providedAdapter?: StorageAdapter): OrdersData {
 
     const connect = async () => {
       try {
-        const adapter = providedAdapter ?? await createStorageAdapter()
-        if (!active) {
-          if (!providedAdapter) await adapter.close()
+        const shared = providedAdapter ?? contextAdapter ?? null
+        if (!shared && fromProvider && (contextLoading || contextError)) {
+          if (contextError && active) {
+            setState({
+              adapter: null,
+              customers: [],
+              orders: [],
+              loading: false,
+              error: new Error(contextError),
+            })
+          }
           return
         }
 
-        ownedAdapter = providedAdapter ? undefined : adapter
+        const adapter = shared ?? await createStorageAdapter()
+        if (!active) {
+          if (!shared) await adapter.close()
+          return
+        }
+
+        ownedAdapter = shared ? undefined : adapter
         const refresh = async () => {
           const [orders, customers] = await Promise.all([adapter.listOrders(), adapter.listCustomers()])
           if (active) setState({ adapter, orders, customers, loading: false, error: null })
@@ -64,7 +80,7 @@ export function useOrdersData(providedAdapter?: StorageAdapter): OrdersData {
       unsubscribe?.()
       if (ownedAdapter) void ownedAdapter.close()
     }
-  }, [providedAdapter])
+  }, [providedAdapter, contextAdapter, fromProvider, contextLoading, contextError])
 
   return state
 }

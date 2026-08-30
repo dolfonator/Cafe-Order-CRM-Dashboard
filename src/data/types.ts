@@ -9,7 +9,8 @@ export type ModifierOption = {
   default?: boolean
 }
 
-export type ModifierGroup = {
+/** Persisted `modifier_groups` table row. Distinct from domain `ModifierGroup` (union of catalog group keys). */
+export type StoredModifierGroup = {
   id: string
   name: string
   appliesToProductIds: string[]
@@ -70,7 +71,7 @@ export type StorageCollection =
 
 export type StorageEntityByCollection = {
   products: StoredProduct
-  modifierGroups: ModifierGroup
+  modifierGroups: StoredModifierGroup
   customers: StoredCustomer
   orders: StoredOrder
   orderItems: StoredOrderItem
@@ -102,10 +103,10 @@ export interface StorageAdapter {
   // JSON in the `settings` table — that is the mechanism to extend for editable
   // modifiers, NOT this table. Writing here would put modifier config in two places
   // with the app honouring only one.
-  listModifierGroups(): Promise<ModifierGroup[]>
-  getModifierGroup(id: string): Promise<ModifierGroup | null>
-  createModifierGroup(group: ModifierGroup): Promise<ModifierGroup>
-  updateModifierGroup(id: string, patch: Partial<Omit<ModifierGroup, 'id' | 'createdAt'>>): Promise<ModifierGroup>
+  listModifierGroups(): Promise<StoredModifierGroup[]>
+  getModifierGroup(id: string): Promise<StoredModifierGroup | null>
+  createModifierGroup(group: StoredModifierGroup): Promise<StoredModifierGroup>
+  updateModifierGroup(id: string, patch: Partial<Omit<StoredModifierGroup, 'id' | 'createdAt'>>): Promise<StoredModifierGroup>
   deleteModifierGroup(id: string): Promise<void>
 
   listCustomers(): Promise<StoredCustomer[]>

@@ -4,6 +4,7 @@ import { DemoBanner } from './components/DemoBanner'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { InstallPrompt } from './components/InstallPrompt'
 import { AppShell } from './components/layout/AppShell'
+import { StorageProvider } from './data/StorageProvider'
 import { AuthBoundary } from './features/auth/AuthBoundary'
 import { isDemoMode } from './features/auth/supabaseAuth'
 
@@ -80,28 +81,30 @@ function SuspenseOutlet() {
 export default function App() {
   return (
     <AuthBoundary>
-      <ErrorBoundary>
-        {isDemoMode && <DemoBanner />}
-        <div className={isDemoMode ? 'pt-9' : undefined}>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<AppShell />}>
-                <Route element={<SuspenseOutlet />}>
-                  <Route path="/today" element={<TodayPage />} />
-                  <Route path="/import" element={<ImportPage />} />
-                  <Route path="/orders" element={<OrdersPage />} />
-                  <Route path="/customers" element={<CustomersPage />} />
-                  <Route path="/insights" element={<InsightsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/" element={<Navigate to="/today" replace />} />
-                  <Route path="*" element={<Navigate to="/today" replace />} />
+      <StorageProvider>
+        <ErrorBoundary>
+          {isDemoMode && <DemoBanner />}
+          <div className={isDemoMode ? 'pt-9' : undefined}>
+            <BrowserRouter>
+              <Routes>
+                <Route element={<AppShell />}>
+                  <Route element={<SuspenseOutlet />}>
+                    <Route path="/today" element={<TodayPage />} />
+                    <Route path="/import" element={<ImportPage />} />
+                    <Route path="/orders" element={<OrdersPage />} />
+                    <Route path="/customers" element={<CustomersPage />} />
+                    <Route path="/insights" element={<InsightsPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/" element={<Navigate to="/today" replace />} />
+                    <Route path="*" element={<Navigate to="/today" replace />} />
+                  </Route>
                 </Route>
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </div>
-        <InstallPrompt />
-      </ErrorBoundary>
+              </Routes>
+            </BrowserRouter>
+          </div>
+          <InstallPrompt />
+        </ErrorBoundary>
+      </StorageProvider>
     </AuthBoundary>
   )
 }

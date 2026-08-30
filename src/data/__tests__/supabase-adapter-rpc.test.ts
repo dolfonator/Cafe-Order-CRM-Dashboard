@@ -81,4 +81,42 @@ describe('SupabaseAdapter aggregate RPCs', () => {
     expect(await adapter.getCustomer(customer.id)).toBeNull()
     expect(fake.rpcCalls.map((call) => call.name)).toContain('delete_customer_cascade')
   })
+
+  it('falls back to delete+insert when replace_order_items is missing', async () => {
+    const adapter = await SupabaseAdapter.create('https://example.supabase.co', 'anon-key')
+    await adapter.createCustomer(customer)
+    await adapter.createProduct(product)
+    await adapter.createOrder(order)
+    const replacement = { ...item, id: '70000000-0000-4000-8000-000000000009', quantity: 2, lineTotalCentavos: 40000 }
+    const updated = await adapter.updateOrder(ORDER_ID, { items: [replacement], subtotalCentavos: 40000, totalCentavos: 42500 })
+    expect(updated.items).toHaveLength(1)
+    expect(updated.items[0].id).toBe(replacement.id)
+    expect(fake.rpcCalls.map((call) => call.name)).toContain('replace_order_items')
+    expect(fake.inserts.some((row) => row.id === replacement.id)).toBe(true)
+  })
+
+  it('uses replace_order_items when the RPC exists and does not table-insert items', async () => {
+    fake.rpcHandlers.replace_order_items = (args) => {
+      const pOrder = args.p_order as Row
+      const pItems = args.p_items as Row[]
+      const orderId = args.p_order_id
+      fake.tables.orders = (fake.tables.orders ?? []).map((row) => (row.id === orderId ? pOrder : row))
+      fake.tables.order_items = [
+        ...(fake.tables.order_items ?? []).filter((row) => row.order_id !== orderId),
+        ...pItems,
+      ]
+      return { data: pOrder, error: null }
+    }
+    const adapter = await SupabaseAdapter.create('https://example.supabase.co', 'anon-key')
+    await adapter.createCustomer(customer)
+    await adapter.createProduct(product)
+    await adapter.createOrder(order)
+    const replacement = { ...item, id: '70000000-0000-4000-8000-000000000009', quantity: 2, lineTotalCentavos: 40000 }
+    const insertsBefore = fake.inserts.length
+    const updated = await adapter.updateOrder(ORDER_ID, { items: [replacement], subtotalCentavos: 40000, totalCentavos: 42500 })
+    expect(updated.items).toHaveLength(1)
+    expect(updated.items[0].id).toBe(replacement.id)
+    expect(fake.rpcCalls.filter((call) => call.name === 'replace_order_items')).toHaveLength(1)
+    expect(fake.inserts.slice(insertsBefore).some((row) => row.id === replacement.id || row.order_id === ORDER_ID)).toBe(false)
+  })
 })

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ModifierGroup, Setting, StorageAdapter, StorageChange, StorageCollection, StorageUnsubscribe, StoredCustomer, StoredOrder, StoredOrderItem, StoredProduct } from './types'
+import type { Setting, StorageAdapter, StorageChange, StorageCollection, StorageUnsubscribe, StoredCustomer, StoredModifierGroup, StoredOrder, StoredOrderItem, StoredProduct } from './types'
 
 type Row = Record<string, unknown>
 
@@ -19,10 +19,10 @@ function fromProduct(row: Row): StoredProduct { return { id: string(row, 'id'), 
 function toProduct(product: StoredProduct): Row { return { id: product.id, name: product.name, price_centavos: product.priceCentavos, active: product.active, created_at: product.createdAt, updated_at: product.updatedAt } }
 function fromCustomer(row: Row): StoredCustomer { return { id: string(row, 'id'), name: string(row, 'name'), phone: nullableString(row, 'phone'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') } }
 function toCustomer(customer: StoredCustomer): Row { return { id: customer.id, name: customer.name, phone: customer.phone, created_at: customer.createdAt, updated_at: customer.updatedAt } }
-function fromGroup(row: Row): ModifierGroup {
-  return { id: string(row, 'id'), name: string(row, 'name'), appliesToProductIds: array<string>(row.applies_to_product_ids), options: array<ModifierGroup['options'][number]>(row.options), allowsMultiple: bool(row, 'allows_multiple'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') }
+function fromGroup(row: Row): StoredModifierGroup {
+  return { id: string(row, 'id'), name: string(row, 'name'), appliesToProductIds: array<string>(row.applies_to_product_ids), options: array<StoredModifierGroup['options'][number]>(row.options), allowsMultiple: bool(row, 'allows_multiple'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') }
 }
-function toGroup(group: ModifierGroup): Row { return { id: group.id, name: group.name, applies_to_product_ids: group.appliesToProductIds, options: group.options, allows_multiple: group.allowsMultiple, created_at: group.createdAt, updated_at: group.updatedAt } }
+function toGroup(group: StoredModifierGroup): Row { return { id: group.id, name: group.name, applies_to_product_ids: group.appliesToProductIds, options: group.options, allows_multiple: group.allowsMultiple, created_at: group.createdAt, updated_at: group.updatedAt } }
 function fromItem(row: Row): StoredOrderItem {
   return { id: string(row, 'id'), orderId: string(row, 'order_id'), productId: string(row, 'product_id'), productName: string(row, 'product_name_snapshot'), quantity: number(row, 'quantity'), modifiers: (row.modifiers ?? {}) as StoredOrderItem['modifiers'], unitPriceCentavos: number(row, 'unit_price_centavos'), lineTotalCentavos: number(row, 'line_total_centavos'), createdAt: string(row, 'created_at'), updatedAt: string(row, 'updated_at') }
 }
@@ -39,12 +39,15 @@ function toNewSetting(setting: Omit<Setting, 'id'> & { id?: string }): Row { ret
 
 export class SupabaseAdapter implements StorageAdapter {
   private readonly client: SupabaseClient
+  private userVerified = false
   private constructor(client: SupabaseClient) { this.client = client }
   static async create(url: string, anonKey: string): Promise<SupabaseAdapter> { return new SupabaseAdapter(createClient(url, anonKey)) }
 
   private async authenticated(): Promise<void> {
+    if (this.userVerified) return
     const { data, error } = await this.client.auth.getUser()
     if (error || !data.user) throw new Error('SupabaseAdapter requires an authenticated user.')
+    this.userVerified = true
   }
   private async rows(table: string): Promise<Row[]> {
     await this.authenticated()
@@ -96,10 +99,10 @@ export class SupabaseAdapter implements StorageAdapter {
   async updateProduct(id: string, patch: Partial<Omit<StoredProduct, 'id' | 'createdAt'>>): Promise<StoredProduct> { const current = await this.getProduct(id); if (!current) throw new Error(`products record ${id} does not exist.`); return fromProduct(await this.replace('products', id, toProduct({ ...current, ...patch }))) }
   deleteProduct = (id: string): Promise<void> => this.erase('products', id)
 
-  async listModifierGroups(): Promise<ModifierGroup[]> { return (await this.rows('modifier_groups')).map(fromGroup) }
-  async getModifierGroup(id: string): Promise<ModifierGroup | null> { const row = await this.row('modifier_groups', id); return row ? fromGroup(row) : null }
-  async createModifierGroup(group: ModifierGroup): Promise<ModifierGroup> { return fromGroup(await this.insert('modifier_groups', toGroup(group))) }
-  async updateModifierGroup(id: string, patch: Partial<Omit<ModifierGroup, 'id' | 'createdAt'>>): Promise<ModifierGroup> { const current = await this.getModifierGroup(id); if (!current) throw new Error(`modifierGroups record ${id} does not exist.`); return fromGroup(await this.replace('modifier_groups', id, toGroup({ ...current, ...patch }))) }
+  async listModifierGroups(): Promise<StoredModifierGroup[]> { return (await this.rows('modifier_groups')).map(fromGroup) }
+  async getModifierGroup(id: string): Promise<StoredModifierGroup | null> { const row = await this.row('modifier_groups', id); return row ? fromGroup(row) : null }
+  async createModifierGroup(group: StoredModifierGroup): Promise<StoredModifierGroup> { return fromGroup(await this.insert('modifier_groups', toGroup(group))) }
+  async updateModifierGroup(id: string, patch: Partial<Omit<StoredModifierGroup, 'id' | 'createdAt'>>): Promise<StoredModifierGroup> { const current = await this.getModifierGroup(id); if (!current) throw new Error(`modifierGroups record ${id} does not exist.`); return fromGroup(await this.replace('modifier_groups', id, toGroup({ ...current, ...patch }))) }
   deleteModifierGroup = (id: string): Promise<void> => this.erase('modifier_groups', id)
 
   async listCustomers(): Promise<StoredCustomer[]> { return (await this.rows('customers')).map(fromCustomer) }
@@ -119,7 +122,13 @@ export class SupabaseAdapter implements StorageAdapter {
     await this.deleteCustomer(customerId)
   }
 
-  async listOrderItems(orderId?: string): Promise<StoredOrderItem[]> { const items = (await this.rows('order_items')).map(fromItem); return orderId ? items.filter((item) => item.orderId === orderId) : items }
+  async listOrderItems(orderId?: string): Promise<StoredOrderItem[]> {
+    if (!orderId) return (await this.rows('order_items')).map(fromItem)
+    await this.authenticated()
+    const { data, error } = await this.client.from('order_items').select().eq('order_id', orderId)
+    if (error) throw new Error(`Supabase order_items read failed: ${error.message}`)
+    return ((data ?? []) as Row[]).map(fromItem)
+  }
   async getOrderItem(id: string): Promise<StoredOrderItem | null> { const row = await this.row('order_items', id); return row ? fromItem(row) : null }
   async createOrderItem(item: StoredOrderItem): Promise<StoredOrderItem> { return fromItem(await this.insert('order_items', toItem(item))) }
   async updateOrderItem(id: string, patch: Partial<Omit<StoredOrderItem, 'id' | 'createdAt'>>): Promise<StoredOrderItem> { const current = await this.getOrderItem(id); if (!current) throw new Error(`orderItems record ${id} does not exist.`); return fromItem(await this.replace('order_items', id, toItem({ ...current, ...patch }))) }
@@ -157,12 +166,17 @@ export class SupabaseAdapter implements StorageAdapter {
   async deleteOrder(id: string): Promise<void> { await this.erase('orders', id) }
 
   async listSettings(): Promise<Setting[]> { return (await this.rows('settings')).map(fromSetting) }
-  async getSetting(key: string): Promise<Setting | null> { return (await this.listSettings()).find((setting) => setting.key === key) ?? null }
+  async getSetting(key: string): Promise<Setting | null> {
+    await this.authenticated()
+    const { data, error } = await this.client.from('settings').select().eq('key', key).maybeSingle()
+    if (error) throw new Error(`Supabase settings read failed: ${error.message}`)
+    return data ? fromSetting(asRow(data)) : null
+  }
   async setSetting(setting: Omit<Setting, 'id'> & { id?: string }): Promise<Setting> { const current = await this.getSetting(setting.key); return fromSetting(current ? await this.replace('settings', current.id, toSetting({ ...setting, id: current.id })) : await this.insert('settings', toNewSetting(setting))) }
   async deleteSetting(key: string): Promise<void> { const setting = await this.getSetting(key); if (setting) await this.erase('settings', setting.id) }
 
   subscribe(listener: (change: StorageChange) => void): StorageUnsubscribe {
-    const tables: Record<string, StorageCollection> = { products: 'products', modifier_groups: 'modifierGroups', customers: 'customers', orders: 'orders', order_items: 'orderItems', settings: 'settings' }
+    const tables: Record<string, StorageCollection> = { products: 'products', customers: 'customers', orders: 'orders', order_items: 'orderItems', settings: 'settings' }
     const channel = this.client.channel('order-dashboard-storage')
     for (const [table, collection] of Object.entries(tables)) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, async (payload) => {
@@ -176,7 +190,7 @@ export class SupabaseAdapter implements StorageAdapter {
           listener({ collection, operation, entity: fromOrder(row, items) } as StorageChange)
           return
         }
-        const entity = collection === 'products' ? fromProduct(row) : collection === 'modifierGroups' ? fromGroup(row) : collection === 'customers' ? fromCustomer(row) : collection === 'orderItems' ? fromItem(row) : fromSetting(row)
+        const entity = collection === 'products' ? fromProduct(row) : collection === 'customers' ? fromCustomer(row) : collection === 'orderItems' ? fromItem(row) : fromSetting(row)
         listener({ collection, operation, entity } as StorageChange)
       })
     }

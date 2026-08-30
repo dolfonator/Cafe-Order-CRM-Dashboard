@@ -51,8 +51,6 @@ export type StructuralOrder = {
   unresolved_fields?: unknown
 }
 
-export type ImportedOrderCandidate = StructuralOrder & { raw_source?: string }
-
 export type DraftValidation = {
   errors: string[]
   warnings: string[]

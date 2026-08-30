@@ -62,4 +62,47 @@ describe('LocalAdapter', () => {
   it('fails fast for partial Supabase configuration', async () => {
     await expect(createStorageAdapter({ supabaseUrl: 'https://example.supabase.co' })).rejects.toThrow('Supabase configuration is incomplete')
   })
+
+  /**
+   * Documents the LocalAdapter trap: `updateOrder(id, { items })` merges the
+   * `items` array onto the orders record only. `listOrders`/`getOrder` rebuild
+   * items from the separate `orderItems` store, so stale rows remain. Callers
+   * must use granular item ops (see `saveOrderEdit`). Do not "fix" this.
+   */
+  it('updateOrder(id, { items }) does not rewrite the orderItems store', async () => {
+    const adapter = await LocalAdapter.create()
+    await adapter.createCustomer(customer)
+    await adapter.createOrder(order)
+
+    const replacement: StoredOrderItem = {
+      ...item,
+      id: '70000000-0000-4000-8000-000000000009',
+      quantity: 2,
+      lineTotalCentavos: 40000,
+    }
+
+    const updated = await adapter.updateOrder(order.id, {
+      items: [replacement],
+      subtotalCentavos: 40000,
+      totalCentavos: 42500,
+    })
+
+    // The returned order object carries the patched `items` array (merge onto the orders row).
+    expect(updated.items).toEqual([replacement])
+    expect(updated.subtotalCentavos).toBe(40000)
+
+    // But the orderItems store is untouched — original item remains, replacement was never written.
+    const storedItems = await adapter.listOrderItems(order.id)
+    expect(storedItems).toHaveLength(1)
+    expect(storedItems[0].id).toBe(item.id)
+    expect(storedItems[0].quantity).toBe(1)
+
+    // listOrders/getOrder rebuild from orderItems, so they expose the stale item, not the patch.
+    const fromGet = await adapter.getOrder(order.id)
+    expect(fromGet!.items).toHaveLength(1)
+    expect(fromGet!.items[0].id).toBe(item.id)
+    expect(fromGet!.subtotalCentavos).toBe(40000)
+
+    await adapter.close()
+  })
 })

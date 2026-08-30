@@ -144,7 +144,7 @@ Always load **parents before children**:
 2. If you are replacing bad or missing data, decide per table whether you need to clear conflicting rows first. Deleting live rows is irreversible without a backup — stop if unsure.
 3. Import each CSV in the restore-safe order above (table → import/insert from CSV if available in the UI).
 4. Do **not** import `order_items` before `orders` and `products`, or `orders` before `customers`. Out-of-order imports commonly fail with foreign-key errors or leave half-restored data.
-5. After all six tables, run the verification checks in section 5.
+5. After all **five** CSVs are imported (`modifier_groups` skipped — empty/unused, no export), run the verification checks in section 5.
 
 Exact import click labels vary by Supabase version. If bulk CSV import is unavailable in the Table Editor for your project, a developer should use the SQL editor or Option B tools rather than guessing.
 

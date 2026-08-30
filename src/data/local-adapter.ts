@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb'
 import { demoCustomers, demoModifierGroups, demoOrderItems, demoOrders, demoProducts, demoSettings } from '../demo/seed'
-import type { ModifierGroup, Setting, StorageAdapter, StorageChange, StorageCollection, StorageEntityByCollection, StorageUnsubscribe, StoredCustomer, StoredOrder, StoredOrderItem, StoredProduct } from './types'
+import type { Setting, StorageAdapter, StorageChange, StorageCollection, StorageEntityByCollection, StorageUnsubscribe, StoredCustomer, StoredModifierGroup, StoredOrder, StoredOrderItem, StoredProduct } from './types'
 
-type LocalRecord = StoredProduct | ModifierGroup | StoredCustomer | StoredOrder | StoredOrderItem | Setting
+type LocalRecord = StoredProduct | StoredModifierGroup | StoredCustomer | StoredOrder | StoredOrderItem | Setting
 type StoreName = StorageCollection
 
 const databaseName = 'made-by-angela-order-dashboard'
@@ -11,7 +11,6 @@ const memoryStores = new Map<StoreName, Map<string, LocalRecord>>()
 
 function timestamp(): string { return new Date().toISOString() }
 function clone<T>(value: T): T { return structuredClone(value) }
-function collectionForStore(store: StoreName): StoreName { return store }
 
 /**
  * Mirrors `public.set_order_lifecycle_timestamps()` in `supabase/schema.sql`.
@@ -115,7 +114,7 @@ export class LocalAdapter implements StorageAdapter {
       entries.set(saved.id, saved)
       memoryStores.set(store, entries)
     }
-    if (announce) this.emit({ collection: collectionForStore(store), operation, entity: saved })
+    if (announce) this.emit({ collection: store, operation, entity: saved })
     return clone(saved)
   }
 
@@ -124,7 +123,7 @@ export class LocalAdapter implements StorageAdapter {
     if (!existing) return null
     if (this.database) await this.database.delete(store, id)
     else memoryStores.get(store)?.delete(id)
-    this.emit({ collection: collectionForStore(store), operation: 'delete', entity: existing })
+    this.emit({ collection: store, operation: 'delete', entity: existing })
     return existing
   }
 
@@ -148,10 +147,10 @@ export class LocalAdapter implements StorageAdapter {
   updateProduct = (id: string, patch: Partial<Omit<StoredProduct, 'id' | 'createdAt'>>): Promise<StoredProduct> => this.update('products', id, patch)
   deleteProduct = async (id: string): Promise<void> => { await this.remove('products', id) }
 
-  listModifierGroups = (): Promise<ModifierGroup[]> => this.values('modifierGroups')
-  getModifierGroup = (id: string): Promise<ModifierGroup | null> => this.get('modifierGroups', id)
-  createModifierGroup = (entity: ModifierGroup): Promise<ModifierGroup> => this.put('modifierGroups', entity)
-  updateModifierGroup = (id: string, patch: Partial<Omit<ModifierGroup, 'id' | 'createdAt'>>): Promise<ModifierGroup> => this.update('modifierGroups', id, patch)
+  listModifierGroups = (): Promise<StoredModifierGroup[]> => this.values('modifierGroups')
+  getModifierGroup = (id: string): Promise<StoredModifierGroup | null> => this.get('modifierGroups', id)
+  createModifierGroup = (entity: StoredModifierGroup): Promise<StoredModifierGroup> => this.put('modifierGroups', entity)
+  updateModifierGroup = (id: string, patch: Partial<Omit<StoredModifierGroup, 'id' | 'createdAt'>>): Promise<StoredModifierGroup> => this.update('modifierGroups', id, patch)
   deleteModifierGroup = async (id: string): Promise<void> => { await this.remove('modifierGroups', id) }
 
   listCustomers = (): Promise<StoredCustomer[]> => this.values('customers')
