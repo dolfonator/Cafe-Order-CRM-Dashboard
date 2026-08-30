@@ -1,4 +1,4 @@
-import { useStorageAdapter } from '../data/StorageProvider'
+import { useStorageAdapter } from '../data/useStorageAdapter'
 import { SettingsFeature } from '../features/settings/SettingsFeature'
 
 export function SettingsPage() {

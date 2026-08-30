@@ -14,6 +14,7 @@ const { saveCustomerProfile, customerProfileKey } = await import('../../features
 
 function interceptSelectEq() {
   const eqs: Array<{ table: string; column: string; value: unknown; maybeSingle: boolean }> = []
+  const ins: Array<{ table: string; column: string; value: unknown }> = []
   const origFrom = fake.client.from
   fake.client.from = ((table: string) => {
     const api = origFrom(table)
@@ -21,10 +22,15 @@ function interceptSelectEq() {
     api.select = () => {
       const builder = origSelect()
       const origEq = builder.eq.bind(builder)
+      const origIn = builder.in.bind(builder)
       const origMaybe = builder.maybeSingle.bind(builder)
       builder.eq = (column: string, value: unknown) => {
         eqs.push({ table, column, value, maybeSingle: false })
         return origEq(column, value)
+      }
+      builder.in = (column: string, values: unknown[]) => {
+        ins.push({ table, column, value: values })
+        return origIn(column, values)
       }
       builder.maybeSingle = () => {
         const last = eqs[eqs.length - 1]
@@ -35,7 +41,7 @@ function interceptSelectEq() {
     }
     return api
   }) as typeof fake.client.from
-  return { eqs, restore: () => { fake.client.from = origFrom } }
+  return { eqs, ins, restore: () => { fake.client.from = origFrom } }
 }
 
 describe('SupabaseAdapter settings writes', () => {
@@ -79,6 +85,163 @@ describe('SupabaseAdapter settings writes', () => {
 describe('SupabaseAdapter query tightness', () => {
   beforeEach(() => {
     fake.reset()
+  })
+
+  it('scopes listOrders by delivery_date and loads items only for matching order ids', async () => {
+    const adapter = await SupabaseAdapter.create('https://example.supabase.co', 'anon-key')
+    const createdAt = '2026-07-16T10:00:00.000Z'
+    const customerId = '70000000-0000-4000-8000-000000000001'
+    const productId = '10000000-0000-4000-8000-000000000001'
+    const matchId = '70000000-0000-4000-8000-000000000003'
+    const otherId = '70000000-0000-4000-8000-000000000013'
+    await adapter.createCustomer({ id: customerId, name: 'Date Scope', phone: null, createdAt, updatedAt: createdAt })
+    await adapter.createProduct({ id: productId, name: 'Matcha Latte', priceCentavos: 20000, active: true, createdAt, updatedAt: createdAt })
+    await adapter.createOrder({
+      id: matchId,
+      customerId,
+      status: 'new',
+      items: [{
+        id: '70000000-0000-4000-8000-000000000002',
+        orderId: matchId,
+        productId,
+        productName: 'Matcha Latte',
+        quantity: 1,
+        modifiers: { level: 1, powder: 'yumeno', sweetness: 'regular' },
+        unitPriceCentavos: 20000,
+        lineTotalCentavos: 20000,
+        createdAt,
+        updatedAt: createdAt,
+      }],
+      subtotalCentavos: 20000,
+      deliveryFeeCentavos: 2500,
+      totalCentavos: 22500,
+      deliveryDate: '2026-07-16',
+      paymentReceived: false,
+      rawSource: 'test',
+      addressSnapshot: null,
+      notes: null,
+      routePosition: null,
+      paidAt: null,
+      deliveredAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    })
+    await adapter.createOrder({
+      id: otherId,
+      customerId,
+      status: 'new',
+      items: [{
+        id: '70000000-0000-4000-8000-000000000014',
+        orderId: otherId,
+        productId,
+        productName: 'Matcha Latte',
+        quantity: 1,
+        modifiers: { level: 1, powder: 'yumeno', sweetness: 'regular' },
+        unitPriceCentavos: 20000,
+        lineTotalCentavos: 20000,
+        createdAt,
+        updatedAt: createdAt,
+      }],
+      subtotalCentavos: 20000,
+      deliveryFeeCentavos: 2500,
+      totalCentavos: 22500,
+      deliveryDate: '2026-07-17',
+      paymentReceived: false,
+      rawSource: 'test',
+      addressSnapshot: null,
+      notes: null,
+      routePosition: null,
+      paidAt: null,
+      deliveredAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    })
+
+    const { eqs, ins, restore } = interceptSelectEq()
+    try {
+      const scoped = await adapter.listOrders({ deliveryDate: '2026-07-16' })
+      expect(scoped).toHaveLength(1)
+      expect(scoped[0].id).toBe(matchId)
+      expect(eqs).toContainEqual({
+        table: 'orders',
+        column: 'delivery_date',
+        value: '2026-07-16',
+        maybeSingle: false,
+      })
+      expect(ins).toContainEqual({
+        table: 'order_items',
+        column: 'order_id',
+        value: [matchId],
+      })
+      const unfiltered = await adapter.listOrders()
+      expect(unfiltered).toHaveLength(2)
+    } finally {
+      restore()
+    }
+  })
+
+  it('returns [] for a date with no orders without scanning order_items', async () => {
+    const adapter = await SupabaseAdapter.create('https://example.supabase.co', 'anon-key')
+    const { eqs, ins, restore } = interceptSelectEq()
+    try {
+      const empty = await adapter.listOrders({ deliveryDate: '2099-01-01' })
+      expect(empty).toEqual([])
+      expect(eqs).toContainEqual({
+        table: 'orders',
+        column: 'delivery_date',
+        value: '2099-01-01',
+        maybeSingle: false,
+      })
+      expect(ins.filter((entry) => entry.table === 'order_items')).toHaveLength(0)
+    } finally {
+      restore()
+    }
+  })
+
+  it('scalar updateOrder does not list order items', async () => {
+    const adapter = await SupabaseAdapter.create('https://example.supabase.co', 'anon-key')
+    const createdAt = '2026-07-16T10:00:00.000Z'
+    const customerId = '70000000-0000-4000-8000-000000000001'
+    const productId = '10000000-0000-4000-8000-000000000001'
+    const orderId = '70000000-0000-4000-8000-000000000003'
+    await adapter.createCustomer({ id: customerId, name: 'Route', phone: null, createdAt, updatedAt: createdAt })
+    await adapter.createProduct({ id: productId, name: 'Matcha Latte', priceCentavos: 20000, active: true, createdAt, updatedAt: createdAt })
+    await adapter.createOrder({
+      id: orderId,
+      customerId,
+      status: 'new',
+      items: [{
+        id: '70000000-0000-4000-8000-000000000002',
+        orderId,
+        productId,
+        productName: 'Matcha Latte',
+        quantity: 1,
+        modifiers: { level: 1, powder: 'yumeno', sweetness: 'regular' },
+        unitPriceCentavos: 20000,
+        lineTotalCentavos: 20000,
+        createdAt,
+        updatedAt: createdAt,
+      }],
+      subtotalCentavos: 20000,
+      deliveryFeeCentavos: 2500,
+      totalCentavos: 22500,
+      deliveryDate: '2026-07-16',
+      paymentReceived: false,
+      rawSource: 'test',
+      addressSnapshot: null,
+      notes: null,
+      routePosition: null,
+      paidAt: null,
+      deliveredAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    })
+    const spy = vi.spyOn(adapter, 'listOrderItems')
+    const updated = await adapter.updateOrder(orderId, { routePosition: 4 })
+    expect(updated.routePosition).toBe(4)
+    expect(spy).not.toHaveBeenCalled()
+    expect(fake.updates.at(-1)).not.toHaveProperty('paid_at')
+    expect(fake.updates.at(-1)).not.toHaveProperty('delivered_at')
   })
 
   it('filters listOrderItems by order_id in PostgREST when orderId is provided', async () => {

@@ -159,9 +159,11 @@ export class LocalAdapter implements StorageAdapter {
   updateCustomer = (id: string, patch: Partial<Omit<StoredCustomer, 'id' | 'createdAt'>>): Promise<StoredCustomer> => this.update('customers', id, patch)
   deleteCustomer = async (id: string): Promise<void> => { await this.remove('customers', id) }
 
-  async listOrders(): Promise<StoredOrder[]> {
+  async listOrders(filter?: { deliveryDate?: string }): Promise<StoredOrder[]> {
     const [orders, items] = await Promise.all([this.values('orders'), this.values('orderItems')])
-    return orders.map((order) => ({ ...order, items: items.filter((item) => item.orderId === order.id) }))
+    const joined = orders.map((order) => ({ ...order, items: items.filter((item) => item.orderId === order.id) }))
+    if (filter?.deliveryDate === undefined) return joined
+    return joined.filter((order) => order.deliveryDate === filter.deliveryDate)
   }
   async getOrder(id: string): Promise<StoredOrder | null> {
     const order = await this.get('orders', id)

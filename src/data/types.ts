@@ -122,7 +122,7 @@ export interface StorageAdapter {
    */
   deleteCustomerCascade?(customerId: string): Promise<void>
 
-  listOrders(): Promise<StoredOrder[]>
+  listOrders(filter?: { deliveryDate?: string }): Promise<StoredOrder[]>
   getOrder(id: string): Promise<StoredOrder | null>
   createOrder(order: StoredOrder): Promise<StoredOrder>
   updateOrder(id: string, patch: Partial<Omit<StoredOrder, 'id' | 'createdAt'>>): Promise<StoredOrder>

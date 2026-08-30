@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createStorageAdapter } from '../../data/adapter'
-import { useStorageAdapter } from '../../data/StorageProvider'
+import { useStorageAdapter } from '../../data/useStorageAdapter'
 import type { StorageAdapter, StoredCustomer, StoredOrder } from '../../data/types'
 
 export type OrdersData = {
@@ -12,7 +12,7 @@ export type OrdersData = {
 }
 
 /** Loads a single live data snapshot and refreshes it after relevant adapter events. */
-export function useOrdersData(providedAdapter?: StorageAdapter): OrdersData {
+export function useOrdersData(providedAdapter?: StorageAdapter, options?: { deliveryDate?: string }): OrdersData {
   const { adapter: contextAdapter, fromProvider, loading: contextLoading, error: contextError } = useStorageAdapter()
   const [state, setState] = useState<OrdersData>({
     adapter: providedAdapter ?? contextAdapter ?? null,
@@ -51,7 +51,10 @@ export function useOrdersData(providedAdapter?: StorageAdapter): OrdersData {
 
         ownedAdapter = shared ? undefined : adapter
         const refresh = async () => {
-          const [orders, customers] = await Promise.all([adapter.listOrders(), adapter.listCustomers()])
+          const [orders, customers] = await Promise.all([
+            adapter.listOrders(options?.deliveryDate !== undefined ? { deliveryDate: options.deliveryDate } : undefined),
+            adapter.listCustomers(),
+          ])
           if (active) setState({ adapter, orders, customers, loading: false, error: null })
         }
 
@@ -80,7 +83,7 @@ export function useOrdersData(providedAdapter?: StorageAdapter): OrdersData {
       unsubscribe?.()
       if (ownedAdapter) void ownedAdapter.close()
     }
-  }, [providedAdapter, contextAdapter, fromProvider, contextLoading, contextError])
+  }, [providedAdapter, contextAdapter, fromProvider, contextLoading, contextError, options?.deliveryDate])
 
   return state
 }

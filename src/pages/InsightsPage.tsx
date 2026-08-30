@@ -1,4 +1,4 @@
-import { useStorageAdapter } from '../data/StorageProvider'
+import { useStorageAdapter } from '../data/useStorageAdapter'
 import { InsightsFeature } from '../features/insights/InsightsFeature'
 
 export function InsightsPage() {

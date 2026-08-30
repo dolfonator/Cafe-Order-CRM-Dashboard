@@ -150,6 +150,7 @@ type TableApi = {
 type QueryBuilder = {
   select: () => QueryBuilder
   eq: (column: string, value: unknown) => QueryBuilder
+  in: (column: string, values: unknown[]) => QueryBuilder
   single: () => Promise<{ data: unknown; error: PgError | null }>
   maybeSingle: () => Promise<{ data: unknown; error: PgError | null }>
   then: (
@@ -203,10 +204,13 @@ export function createFakePostgrest(): FakePostgrest {
     return new Date().toISOString()
   }
 
-  function filterRows(table: string, filters: Array<{ column: string; value: unknown }>): Row[] {
+  function filterRows(table: string, filters: Array<{ column: string; value: unknown; op?: 'eq' | 'in' }>): Row[] {
     const rows = tables[table] ?? []
     if (filters.length === 0) return [...rows]
-    return rows.filter((row) => filters.every((f) => row[f.column] === f.value))
+    return rows.filter((row) => filters.every((f) => {
+      if (f.op === 'in') return Array.isArray(f.value) && f.value.includes(row[f.column])
+      return row[f.column] === f.value
+    }))
   }
 
   function validateUuids(table: string, row: Row): PgError | null {
@@ -424,7 +428,7 @@ export function createFakePostgrest(): FakePostgrest {
     mode: 'select' | 'insert' | 'update' | 'delete',
     seed?: { data?: unknown; error?: PgError | null; patch?: Row },
   ): QueryBuilder {
-    const filters: Array<{ column: string; value: unknown }> = []
+    const filters: Array<{ column: string; value: unknown; op?: 'eq' | 'in' }> = []
     const settledError = seed?.error ?? null
     const settledData = seed?.data
     let updateApplied = false
@@ -496,7 +500,11 @@ export function createFakePostgrest(): FakePostgrest {
     const builder: QueryBuilder = {
       select: () => builder,
       eq: (column: string, value: unknown) => {
-        filters.push({ column, value })
+        filters.push({ column, value, op: 'eq' })
+        return builder
+      },
+      in: (column: string, values: unknown[]) => {
+        filters.push({ column, value: values, op: 'in' })
         return builder
       },
       single: () => Promise.resolve(execute('one')),

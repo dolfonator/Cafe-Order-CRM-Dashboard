@@ -1,14 +1,7 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createStorageAdapter } from './adapter'
 import type { StorageAdapter } from './types'
-
-export type StorageAdapterContextValue = {
-  adapter: StorageAdapter | null
-  loading: boolean
-  error: string | null
-}
-
-const StorageAdapterContext = createContext<StorageAdapterContextValue | null>(null)
+import { StorageAdapterContext } from './useStorageAdapter'
 
 export function StorageProvider({ children }: { children: ReactNode }) {
   const [adapter, setAdapter] = useState<StorageAdapter | null>(null)
@@ -46,13 +39,4 @@ export function StorageProvider({ children }: { children: ReactNode }) {
       {children}
     </StorageAdapterContext.Provider>
   )
-}
-
-/** Returns the signed-in shell adapter, or a null-shaped value when used outside StorageProvider. */
-export function useStorageAdapter(): StorageAdapterContextValue & { fromProvider: boolean } {
-  const value = useContext(StorageAdapterContext)
-  if (!value) {
-    return { adapter: null, loading: false, error: null, fromProvider: false }
-  }
-  return { ...value, fromProvider: true }
 }

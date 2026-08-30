@@ -69,10 +69,12 @@ export class SupabaseAdapter implements StorageAdapter {
   }
   private async replace(table: string, id: string, value: Row): Promise<Row> {
     await this.authenticated()
-    // Postgres owns created_at / updated_at (defaults + set_updated_at triggers). Never send them in UPDATE payloads.
+    // Postgres owns created_at / updated_at (defaults + set_updated_at triggers) and lifecycle timestamps.
     const payload = { ...value }
     delete payload.created_at
     delete payload.updated_at
+    delete payload.paid_at
+    delete payload.delivered_at
     const { data, error } = await this.client.from(table).update(payload).eq('id', id).select().single()
     if (error) throw new Error(`Supabase ${table} update failed: ${error.message}`)
     return asRow(data)
@@ -134,8 +136,21 @@ export class SupabaseAdapter implements StorageAdapter {
   async updateOrderItem(id: string, patch: Partial<Omit<StoredOrderItem, 'id' | 'createdAt'>>): Promise<StoredOrderItem> { const current = await this.getOrderItem(id); if (!current) throw new Error(`orderItems record ${id} does not exist.`); return fromItem(await this.replace('order_items', id, toItem({ ...current, ...patch }))) }
   deleteOrderItem = (id: string): Promise<void> => this.erase('order_items', id)
 
-  async listOrders(): Promise<StoredOrder[]> {
-    const [orders, items] = await Promise.all([this.rows('orders'), this.listOrderItems()])
+  async listOrders(filter?: { deliveryDate?: string }): Promise<StoredOrder[]> {
+    await this.authenticated()
+    let query = this.client.from('orders').select()
+    if (filter?.deliveryDate !== undefined) query = query.eq('delivery_date', filter.deliveryDate)
+    const { data, error } = await query
+    if (error) throw new Error(`Supabase orders read failed: ${error.message}`)
+    const orders = (data ?? []) as Row[]
+    if (orders.length === 0) return []
+    const ids = orders.map((order) => string(order, 'id'))
+    const itemsQuery = filter?.deliveryDate !== undefined
+      ? this.client.from('order_items').select().in('order_id', ids)
+      : this.client.from('order_items').select()
+    const { data: itemRows, error: itemsError } = await itemsQuery
+    if (itemsError) throw new Error(`Supabase order_items read failed: ${itemsError.message}`)
+    const items = ((itemRows ?? []) as Row[]).map(fromItem)
     return orders.map((order) => fromOrder(order, items.filter((item) => item.orderId === string(order, 'id'))))
   }
   async getOrder(id: string): Promise<StoredOrder | null> { const row = await this.row('orders', id); return row ? fromOrder(row, await this.listOrderItems(id)) : null }
@@ -148,20 +163,23 @@ export class SupabaseAdapter implements StorageAdapter {
     return { ...created, items }
   }
   async updateOrder(id: string, patch: Partial<Omit<StoredOrder, 'id' | 'createdAt'>>): Promise<StoredOrder> {
-    const current = await this.getOrder(id)
-    if (!current) throw new Error(`orders record ${id} does not exist.`)
-    const next = { ...current, ...patch }
     if (patch.items) {
+      const current = await this.getOrder(id)
+      if (!current) throw new Error(`orders record ${id} does not exist.`)
+      const next = { ...current, ...patch }
       const result = await this.rpc<Row>('replace_order_items', { p_order_id: id, p_order: toOrder(next), p_items: patch.items.map(toItem) })
       if (result.ok) return fromOrder(asRow(result.data), await this.listOrderItems(id))
       if (!result.missing) throw new Error(`Supabase replace_order_items failed: ${result.message}`)
-    }
-    const updated = fromOrder(await this.replace('orders', id, toOrder(next)))
-    if (patch.items) {
+      const updated = fromOrder(await this.replace('orders', id, toOrder(next)))
       for (const item of current.items) await this.deleteOrderItem(item.id)
       for (const item of patch.items) await this.createOrderItem(item)
+      return { ...updated, items: patch.items }
     }
-    return { ...updated, items: patch.items ?? current.items }
+
+    const row = await this.row('orders', id)
+    if (!row) throw new Error(`orders record ${id} does not exist.`)
+    const next = { ...fromOrder(row), ...patch }
+    return fromOrder(await this.replace('orders', id, toOrder(next)))
   }
   async deleteOrder(id: string): Promise<void> { await this.erase('orders', id) }
 

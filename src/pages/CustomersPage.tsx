@@ -1,4 +1,4 @@
-import { useStorageAdapter } from '../data/StorageProvider'
+import { useStorageAdapter } from '../data/useStorageAdapter'
 import { CustomersFeature } from '../features/customers/CustomersFeature'
 
 export function CustomersPage() {

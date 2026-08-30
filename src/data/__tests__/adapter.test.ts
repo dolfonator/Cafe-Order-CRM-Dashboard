@@ -105,4 +105,30 @@ describe('LocalAdapter', () => {
 
     await adapter.close()
   })
+
+  it('listOrders() without a filter returns full history; a deliveryDate filter scopes the join', async () => {
+    const adapter = await LocalAdapter.create()
+    await adapter.createCustomer(customer)
+    await adapter.createOrder(order)
+    const later: StoredOrder = {
+      ...order,
+      id: '70000000-0000-4000-8000-000000000013',
+      deliveryDate: '2026-07-17',
+      items: [{ ...item, id: '70000000-0000-4000-8000-000000000014', orderId: '70000000-0000-4000-8000-000000000013' }],
+    }
+    await adapter.createOrder(later)
+
+    const all = await adapter.listOrders()
+    expect(all.map((entry) => entry.id)).toEqual(expect.arrayContaining([order.id, later.id]))
+
+    const scoped = await adapter.listOrders({ deliveryDate: '2026-07-17' })
+    expect(scoped).toHaveLength(1)
+    expect(scoped[0].id).toBe(later.id)
+    expect(scoped[0].items).toHaveLength(1)
+
+    const updated = await adapter.updateOrder(order.id, { routePosition: 3 })
+    expect(updated.routePosition).toBe(3)
+    expect((await adapter.getOrder(order.id))?.routePosition).toBe(3)
+    await adapter.close()
+  })
 })

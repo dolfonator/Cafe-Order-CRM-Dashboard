@@ -86,7 +86,7 @@ Merge the PR (or push to `main` per your branching practice). Netlify auto-deplo
 
 ### 9. Verify the deploy
 
-1. Verify the deployed Netlify asset hash **byte-for-byte** against the local `npm run build` output (same method used for the last three releases).
+1. Verify the deployed Netlify asset hash **byte-for-byte** against the local `npm run build` output (same method used for the last three releases). This comparison is only valid when the local build’s `VITE_SUPABASE_*` values (and optional `VITE_SENTRY_*`, if set in production) match Netlify production. A CI or blank-env build is **not** the production byte image — do not use it for the hash check.
 2. Verify the PIN shell loads and accepts operator auth as expected.
 3. Verify `/manifest.webmanifest` is served.
 4. Verify `/sw.js` is served.

@@ -25,8 +25,8 @@ function customerName(customers: StoredCustomer[], order: StoredOrder): string |
 }
 
 export function TodayBoard({ adapter: providedAdapter, initialDeliveryDate }: TodayBoardProps) {
-  const { adapter, customers, orders, loading, error } = useOrdersData(providedAdapter)
   const [deliveryDate, setDeliveryDate] = useState(initialDeliveryDate ?? relevantDeliveryDate)
+  const { adapter, customers, orders, loading, error } = useOrdersData(providedAdapter, { deliveryDate })
   const [view, setView] = useState<'board' | 'run'>('board')
   const [editorState, setEditorState] = useState<EditorState | null>(null)
   const { busyOrderId, setBusyOrderId, advance, cancel, deleteOrder } = useOrderActions(adapter)

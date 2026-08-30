@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { StorageProvider, useStorageAdapter } from '../StorageProvider'
+import { StorageProvider } from '../StorageProvider'
+import { useStorageAdapter } from '../useStorageAdapter'
 import type { StorageAdapter } from '../types'
 
 function Probe({ label }: { label: string }) {

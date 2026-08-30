@@ -1,4 +1,4 @@
-import { useStorageAdapter } from '../data/StorageProvider'
+import { useStorageAdapter } from '../data/useStorageAdapter'
 import { ImportWorkspace } from '../features/import/ImportWorkspace'
 
 export function ImportPage() {
